@@ -130,8 +130,14 @@ python main.py --mode load
 
 ##### 分析模式
 ```bash
-# 執行所有分析
+# 執行傳統安全分析
 python main.py --mode analyze
+
+# 執行進階安全分析（基於 Cartography 架構）
+python main.py --mode advanced-analyze --analysis-type security
+
+# 執行成本優化分析
+python main.py --mode advanced-analyze --analysis-type cost
 
 # 分析結果會儲存到 output/ 目錄
 ```

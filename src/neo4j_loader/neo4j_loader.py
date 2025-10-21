@@ -14,6 +14,19 @@ from dataclasses import dataclass
 import neo4j
 from neo4j import GraphDatabase
 
+# 嘗試導入 backoff 用於重試機制
+try:
+    import backoff
+    from neo4j.exceptions import ServiceUnavailable, SessionExpired, TransientError
+    BACKOFF_AVAILABLE = True
+except ImportError:
+    BACKOFF_AVAILABLE = False
+    # 提供虛擬類別以避免導入錯誤
+    class ServiceUnavailable(Exception): pass
+    class SessionExpired(Exception): pass
+    class TransientError(Exception): pass
+    def backoff(*args, **kwargs): return lambda x: x
+
 from ..data_models import (
     CartographyNodeSchema, 
     CartographyRelSchema,
@@ -40,11 +53,12 @@ def timeit(func):
 @dataclass
 class LoadConfig:
     """載入配置"""
-    batch_size: int = 1000
-    max_retries: int = 3
+    batch_size: int = 10000  # 增加批次大小
+    max_retries: int = 5     # 增加重試次數
     retry_delay: float = 1.0
     create_indexes: bool = True
     cleanup_old_data: bool = True
+    use_advanced_loading: bool = True  # 啟用進階載入功能
 
 
 class ImprovedNeo4jLoader:
@@ -512,3 +526,226 @@ class ImprovedNeo4jLoader:
             stats[rel_type] = result.single()['count']
         
         return stats
+    
+    # ===== 進階功能（基於 Cartography 架構） =====
+    
+    def load_with_schema_advanced(self, schema: CartographyNodeSchema, data: List[Dict[str, Any]], **kwargs) -> None:
+        """使用 Schema 進階載入資料（批次處理 + 重試機制）"""
+        if not data:
+            logger.info(f"沒有 {schema.label} 資料需要載入")
+            return
+        
+        if not self.config.use_advanced_loading:
+            # 使用原始載入方法
+            return self._load_nodes_basic(schema.label, data)
+        
+        # 確保索引存在
+        self._ensure_indexes_advanced(schema)
+        
+        # 批次載入
+        self._load_data_in_batches_advanced(schema, data, **kwargs)
+        
+        logger.info(f"成功載入 {len(data)} 個 {schema.label} 節點")
+    
+    def _ensure_indexes_advanced(self, schema: CartographyNodeSchema) -> None:
+        """確保索引存在（進階版本）"""
+        if not self.config.create_indexes:
+            return
+        
+        # 建立基本索引
+        index_queries = [
+            f"CREATE INDEX IF NOT EXISTS FOR (n:{schema.label}) ON (n.id)",
+            f"CREATE INDEX IF NOT EXISTS FOR (n:{schema.label}) ON (n.lastupdated)"
+        ]
+        
+        # 建立額外索引
+        for attr_name, prop_ref in schema.properties.__dict__.items():
+            if hasattr(prop_ref, 'extra_index') and prop_ref.extra_index:
+                index_queries.append(f"CREATE INDEX IF NOT EXISTS FOR (n:{schema.label}) ON (n.{attr_name})")
+        
+        for query in index_queries:
+            try:
+                self._run_index_query_with_retry(query)
+            except Exception as e:
+                logger.warning(f"建立索引失敗: {e}")
+    
+    def _run_index_query_with_retry(self, query: str) -> None:
+        """執行索引查詢並重試"""
+        if BACKOFF_AVAILABLE:
+            @backoff.on_exception(
+                backoff.expo,
+                (ServiceUnavailable, SessionExpired, TransientError),
+                max_tries=3
+            )
+            def _run_query():
+                self.session.run(query)
+            _run_query()
+        else:
+            self.session.run(query)
+    
+    def _load_data_in_batches_advanced(self, schema: CartographyNodeSchema, data: List[Dict[str, Any]], **kwargs) -> None:
+        """批次載入資料（進階版本）"""
+        batch_size = self.config.batch_size
+        
+        for i in range(0, len(data), batch_size):
+            batch = data[i:i + batch_size]
+            
+            def _load_batch_tx(tx: neo4j.Transaction) -> None:
+                # 建構批次載入查詢
+                query = self._build_batch_query(schema, batch)
+                tx.run(query, **kwargs)
+            
+            if BACKOFF_AVAILABLE:
+                @backoff.on_exception(
+                    backoff.expo,
+                    (ServiceUnavailable, SessionExpired, TransientError),
+                    max_tries=self.config.max_retries,
+                    on_backoff=lambda details: logger.warning(f"重試載入，第 {details['tries']} 次嘗試")
+                )
+                def _load_with_retry():
+                    self.session.write_transaction(_load_batch_tx)
+                _load_with_retry()
+            else:
+                self.session.write_transaction(_load_batch_tx)
+            
+            logger.debug(f"載入批次 {i//batch_size + 1}/{(len(data)-1)//batch_size + 1}")
+    
+    def _build_batch_query(self, schema: CartographyNodeSchema, batch: List[Dict[str, Any]]) -> str:
+        """建構批次載入查詢"""
+        node_label = schema.label
+        id_property = schema.properties.id.source
+        
+        # 建構 UNWIND 查詢
+        query = f"""
+        UNWIND $DictList AS item
+        MERGE (n:{node_label} {{id: item.{id_property}}})
+        SET n += item
+        """
+        
+        # 添加額外屬性設定
+        set_clauses = []
+        for attr_name, prop_ref in schema.properties.__dict__.items():
+            if attr_name in ['id', 'lastupdated']:
+                continue
+            if hasattr(prop_ref, 'set_in_kwargs') and prop_ref.set_in_kwargs:
+                set_clauses.append(f"n.{attr_name} = ${prop_ref.source}")
+            else:
+                set_clauses.append(f"n.{attr_name} = item.{prop_ref.source}")
+        
+        if set_clauses:
+            query += ",\n        ".join(set_clauses)
+        
+        return query
+    
+    def cleanup_old_data_advanced(self, node_labels: List[str], limit_size: int = 1000) -> None:
+        """清理舊資料（進階版本）"""
+        update_tag = int(time.time())
+        
+        for label in node_labels:
+            query = f"""
+            MATCH (n:{label}) 
+            WHERE n.lastupdated <> $UPDATE_TAG 
+            WITH n LIMIT $LIMIT_SIZE 
+            DETACH DELETE (n)
+            """
+            
+            def _cleanup_tx(tx: neo4j.Transaction) -> None:
+                result = tx.run(query, UPDATE_TAG=update_tag, LIMIT_SIZE=limit_size)
+                return result.consume()
+            
+            try:
+                if BACKOFF_AVAILABLE:
+                    @backoff.on_exception(
+                        backoff.expo,
+                        (ServiceUnavailable, SessionExpired, TransientError),
+                        max_tries=3
+                    )
+                    def _cleanup_with_retry():
+                        self.session.write_transaction(_cleanup_tx)
+                    _cleanup_with_retry()
+                else:
+                    self.session.write_transaction(_cleanup_tx)
+                
+                logger.info(f"清理 {label} 舊資料完成")
+            except Exception as e:
+                logger.error(f"清理 {label} 失敗: {e}")
+    
+    def run_analysis_advanced(self, analysis_type: str) -> List[Dict[str, Any]]:
+        """執行進階分析查詢"""
+        analysis_queries = {
+            'security': """
+                MATCH (instance:EC2Instance)-[:MEMBER_OF]->(sg:SecurityGroup),
+                      (sg)-[:HAS_RULE]->(rule:Rule)
+                WHERE rule.SourceCIDR = '0.0.0.0/0' 
+                  AND rule.PortRange CONTAINS '22'
+                  AND rule.Protocol = 'tcp'
+                SET instance.exposed_ssh = true
+                RETURN instance.Name, instance.PublicIP, sg.GroupName
+            """,
+            'exposed_ssh': """
+                MATCH (instance:EC2Instance)-[:MEMBER_OF]->(sg:SecurityGroup),
+                      (sg)-[:HAS_RULE]->(rule:Rule)
+                WHERE rule.SourceCIDR = '0.0.0.0/0' 
+                  AND rule.PortRange CONTAINS '22'
+                  AND rule.Protocol = 'tcp'
+                SET instance.exposed_ssh = true
+                RETURN instance.Name, instance.PublicIP, sg.GroupName
+            """,
+            'overly_permissive': """
+                MATCH (sg:SecurityGroup)-[:HAS_RULE]->(rule:Rule)
+                WHERE rule.SourceCIDR = '0.0.0.0/0'
+                  AND rule.PortRange = '0-65535'
+                  AND rule.Protocol = 'tcp'
+                SET sg.overly_permissive = true
+                RETURN sg.GroupName, rule.RuleID, rule.Description
+            """,
+            'unused_security_groups': """
+                MATCH (sg:SecurityGroup)
+                WHERE NOT (sg)<-[:MEMBER_OF]-(:EC2Instance)
+                  AND NOT (sg)<-[:SOURCE_SECURITY_GROUP]-(:SecurityGroup)
+                SET sg.unused = true
+                RETURN sg.GroupName, sg.Description
+            """,
+            'orphaned_volumes': """
+                MATCH (volume:EBSVolume)
+                WHERE NOT (volume)-[:ATTACHES_TO]->(:EC2Instance)
+                  AND volume.State = 'available'
+                SET volume.orphaned = true
+                RETURN volume.VolumeId, volume.Size, volume.VolumeType
+                ORDER BY volume.Size DESC
+            """,
+            'cost': """
+                MATCH (instance:EC2Instance)
+                WHERE instance.State = 'stopped'
+                  AND instance.LaunchTime < datetime() - duration('P30D')
+                SET instance.cost_optimization_candidate = true
+                RETURN instance.Name, instance.InstanceType, instance.LaunchTime
+                ORDER BY instance.LaunchTime ASC
+            """,
+            'cost_optimization': """
+                MATCH (instance:EC2Instance)
+                WHERE instance.State = 'stopped'
+                  AND instance.LaunchTime < datetime() - duration('P30D')
+                SET instance.cost_optimization_candidate = true
+                RETURN instance.Name, instance.InstanceType, instance.LaunchTime
+                ORDER BY instance.LaunchTime ASC
+            """
+        }
+        
+        query = analysis_queries.get(analysis_type)
+        if not query:
+            logger.error(f"未知的分析類型: {analysis_type}")
+            return []
+        
+        def _run_analysis_tx(tx: neo4j.Transaction) -> List[Dict[str, Any]]:
+            result = tx.run(query)
+            return [record.data() for record in result]
+        
+        try:
+            # 使用 write_transaction 替代 read_transaction（相容性問題）
+            findings = self.session.write_transaction(_run_analysis_tx)
+            logger.info(f"分析 {analysis_type} 完成，發現 {len(findings)} 個問題")
+            return findings
+        except Exception as e:
+            logger.error(f"分析 {analysis_type} 失敗: {e}")
+            return []

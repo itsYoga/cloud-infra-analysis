@@ -19,6 +19,7 @@ from src.data_models import create_indexes, get_all_schemas
 from src.neo4j_loader.neo4j_loader import ImprovedNeo4jLoader, LoadConfig
 from src.rules.security_rules_engine import SecurityRulesEngine
 from src.extensions.modular_architecture import ExtensionManager, ModuleType
+# 移除已刪除的模組導入
 
 # 動態導入 AWS 提取器（如果可用）
 try:
@@ -44,6 +45,7 @@ class ImprovedCloudInfrastructureAnalyzer:
         self.neo4j_loader = None
         self.rules_engine = None
         self.extension_manager = ExtensionManager()
+# 移除已刪除的模組
         
         # 初始化組件
         self._initialize_components()
@@ -89,6 +91,8 @@ class ImprovedCloudInfrastructureAnalyzer:
             
             # 設定架構
             self.neo4j_loader.setup_schema()
+            
+            # 移除已刪除的模組初始化
             
             # 初始化安全規則引擎
             self.rules_engine = SecurityRulesEngine(self.neo4j_loader.session)
@@ -298,6 +302,37 @@ class ImprovedCloudInfrastructureAnalyzer:
             logger.error(f"執行安全分析失敗: {e}")
             return None
     
+    def run_advanced_analysis(self, analysis_type: str = 'security') -> Dict[str, Any]:
+        """執行進階分析（基於 Cartography 架構）"""
+        try:
+            logger.info(f"開始執行進階 {analysis_type} 分析")
+            
+            if not self.neo4j_loader:
+                logger.error("Neo4j 載入器未初始化")
+                return {}
+            
+            # 使用整合後的進階分析功能
+            findings = self.neo4j_loader.run_analysis_advanced(analysis_type)
+            
+            # 儲存結果
+            output_path = f"{self.config['output_dir']}/advanced_analysis_{analysis_type}_{int(time.time())}.json"
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            
+            import json
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump({
+                    'analysis_type': analysis_type,
+                    'findings': findings,
+                    'timestamp': time.time()
+                }, f, indent=2, ensure_ascii=False)
+            
+            logger.info(f"進階分析完成，結果儲存至: {output_path}")
+            return {'findings': findings, 'output_path': output_path}
+                
+        except Exception as e:
+            logger.error(f"進階分析執行失敗: {e}")
+            return {}
+    
     def start_dashboard(self, host: str = '127.0.0.1', port: int = 8050):
         """啟動視覺化儀表板"""
         try:
@@ -368,7 +403,7 @@ class ImprovedCloudInfrastructureAnalyzer:
 def main():
     """主程式入口"""
     parser = argparse.ArgumentParser(description='改進的雲端基礎設施視覺化分析平台')
-    parser.add_argument('--mode', choices=['extract', 'load', 'analyze', 'dashboard', 'full'],
+    parser.add_argument('--mode', choices=['extract', 'load', 'analyze', 'advanced-analyze', 'dashboard', 'full'],
                        default='full', help='執行模式')
     parser.add_argument('--provider', default='aws', help='雲端提供商 (aws, gcp, azure)')
     parser.add_argument('--region', default='us-east-1', help='雲端區域')
@@ -378,6 +413,8 @@ def main():
     parser.add_argument('--config', default='.env', help='設定檔路徑')
     parser.add_argument('--mock', action='store_true', help='使用模擬資料（免費測試）')
     parser.add_argument('--rules', nargs='*', help='指定要執行的安全規則')
+    parser.add_argument('--analysis-type', choices=['security', 'cost'], default='security', 
+                       help='進階分析類型')
     
     args = parser.parse_args()
     
@@ -391,6 +428,9 @@ def main():
             success = analyzer.load_to_neo4j(args.data_path)
         elif args.mode == 'analyze':
             success = analyzer.run_analysis(args.rules) is not None
+        elif args.mode == 'advanced-analyze':
+            result = analyzer.run_advanced_analysis(args.analysis_type)
+            success = bool(result)
         elif args.mode == 'dashboard':
             analyzer.start_dashboard(args.host, args.port)
             success = True
