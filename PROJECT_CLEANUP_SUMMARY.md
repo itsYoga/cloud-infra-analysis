@@ -54,8 +54,8 @@ cloud-infrastructure-analysis/
 ├── main.py                      # 主程式入口 (改進版)
 ├── src/                         # 原始碼目錄
 │   ├── data_models.py          # 圖形資料模型定義 (改進版)
-│   ├── data_extraction/        # 資料擷取模組
-│   │   └── aws_extractor.py    # AWS 資料擷取器
+│   ├── extractors/             # 資料擷取模組
+│   │   └── aws_extractor.py    # AWS 資料擷取器 (真實資料)
 │   ├── neo4j_loader/           # Neo4j 載入模組
 │   │   └── neo4j_loader.py     # Neo4j 資料載入器 (改進版)
 │   ├── analysis/               # 分析模組
@@ -135,8 +135,11 @@ cloud-infrastructure-analysis/
 
 ### 基本命令
 ```bash
-# 完整分析流程
+# 完整分析流程（模擬資料）
 python main.py --mode full --mock
+
+# 完整分析流程（真實 AWS 資料）
+python main.py --mode full --provider aws --region us-east-1
 
 # 僅執行分析
 python main.py --mode analyze
@@ -155,6 +158,9 @@ python main.py --mode load --data-path data/raw/custom_data.json
 
 # 生成新的模擬資料
 python scripts/create_mock_data.py
+
+# 擷取真實 AWS 資料
+python main.py --mode extract --provider aws --region us-west-2
 ```
 
 ---

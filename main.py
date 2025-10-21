@@ -20,6 +20,14 @@ from src.neo4j_loader.neo4j_loader import ImprovedNeo4jLoader, LoadConfig
 from src.rules.security_rules_engine import SecurityRulesEngine
 from src.extensions.modular_architecture import ExtensionManager, ModuleType
 
+# 動態導入 AWS 提取器（如果可用）
+try:
+    from src.extractors.aws_extractor import AWSExtractor
+    AWS_AVAILABLE = True
+except ImportError:
+    AWSExtractor = None
+    AWS_AVAILABLE = False
+
 # 設定日誌
 logging.basicConfig(
     level=logging.INFO,
@@ -125,7 +133,7 @@ class ImprovedCloudInfrastructureAnalyzer:
                     use_mock: bool = False) -> bool:
         """擷取雲端資料"""
         try:
-            if use_mock or self.config['use_mock_data']:
+            if use_mock:
                 logger.info("使用模擬資料模式...")
                 return self._extract_mock_data()
             else:
@@ -168,29 +176,28 @@ class ImprovedCloudInfrastructureAnalyzer:
     def _extract_real_data(self, provider: str, region: str) -> bool:
         """擷取真實資料"""
         try:
-            # 獲取擷取器
-            extractor = self.extension_manager.get_extractor(provider)
-            if not extractor:
+            if provider.lower() == 'aws':
+                if not AWS_AVAILABLE:
+                    logger.error("AWS 提取器不可用，請安裝 boto3: pip install boto3")
+                    return False
+                
+                # 使用真實 AWS 提取器
+                extractor = AWSExtractor(region or self.config['aws_region'])
+                resources = extractor.extract_all_resources()
+                
+                # 儲存到檔案
+                output_path = f"data/raw/real_aws_resources_{region or self.config['aws_region']}_{int(time.time())}.json"
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                
+                import json
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    json.dump(resources, f, indent=2, ensure_ascii=False)
+                
+                logger.info(f"真實 AWS 資料已儲存至: {output_path}")
+                return True
+            else:
                 logger.error(f"不支援的雲端提供商: {provider}")
                 return False
-            
-            # 初始化擷取器
-            if not extractor.initialize():
-                logger.error(f"{provider} 擷取器初始化失敗")
-                return False
-            
-            # 擷取資料
-            data = extractor.extract_resources(region or self.config['aws_region'])
-            
-            # 儲存資料
-            output_path = f"{self.config['data_dir']}/raw/{provider}_resources_{int(time.time())}.json"
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            import json
-            with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-            
-            logger.info(f"資料擷取完成，儲存至: {output_path}")
-            return True
             
         except Exception as e:
             logger.error(f"擷取真實資料失敗: {e}")

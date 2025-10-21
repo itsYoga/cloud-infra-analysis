@@ -103,8 +103,8 @@ python main.py --mode <模式> [選項]
 
 ##### 完整流程模式
 ```bash
-# 使用真實 AWS 資料
-python main.py --mode full --region us-east-1
+# 使用真實 AWS 資料（需要 AWS 認證）
+python main.py --mode full --provider aws --region us-east-1
 
 # 使用模擬資料（免費測試）
 python main.py --mode full --mock
@@ -112,10 +112,10 @@ python main.py --mode full --mock
 
 ##### 📥 資料擷取模式
 ```bash
-# 擷取 AWS 資料
-python main.py --mode extract --region us-west-2
+# 擷取真實 AWS 資料（需要 AWS 認證）
+python main.py --mode extract --provider aws --region us-west-2
 
-# 使用模擬資料
+# 使用模擬資料（免費測試）
 python main.py --mode extract --mock
 ```
 
@@ -246,11 +246,10 @@ cloud-infrastructure-analysis/
 ├── main.py                      # 主程式入口
 ├── src/                         # 原始碼目錄
 │   ├── data_models.py          # 圖形資料模型定義
-│   ├── data_extraction/        # 資料擷取模組
+│   ├── extractors/             # 資料擷取模組
 │   │   ├── __init__.py
 │   │   └── aws_extractor.py    # AWS 資料擷取器
 │   ├── neo4j_loader/           # Neo4j 載入模組
-│   │   ├── __init__.py
 │   │   └── neo4j_loader.py     # Neo4j 資料載入器
 │   ├── analysis/               # 分析模組
 │   │   ├── __init__.py
@@ -350,8 +349,16 @@ ufw status
 # 檢查 AWS 憑證
 aws sts get-caller-identity
 
+# 設定 AWS 認證
+aws configure
+
 # 檢查 IAM 權限
 aws iam list-attached-user-policies --user-name your-username
+
+# 使用環境變數設定認證
+export AWS_ACCESS_KEY_ID=your-access-key
+export AWS_SECRET_ACCESS_KEY=your-secret-key
+export AWS_DEFAULT_REGION=us-east-1
 ```
 
 #### 3. 記憶體不足問題
