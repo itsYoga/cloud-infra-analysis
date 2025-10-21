@@ -50,6 +50,21 @@ output/*.json
 logs/
 *.log
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Process files
+*.pid
+*.sock
+*.lock
+
+# Backup files
+*.bak
+*.backup
+*~
+
 # Neo4j
 neo4j/
 
@@ -64,6 +79,21 @@ neo4j/
 .aws/
 ~/.aws/
 aws-credentials.json
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Other cloud credentials
+.gcp/
+.azure/
+.terraform/
+terraform.tfstate*
+*.tfvars
 
 # Temporary files
 *.tmp
