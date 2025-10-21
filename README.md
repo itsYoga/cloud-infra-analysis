@@ -4,7 +4,7 @@
 
 本專案是一個基於 **Neo4j 圖形資料庫**的雲端基礎設施分析平台，旨在透過圖形資料模型整合與分析 AWS 等雲端環境中的複雜資源、關聯與依賴關係。系統提供**資安漏洞分析**、**故障衝擊分析**與**成本優化**等核心功能，並提供互動式視覺化儀表板。
 
-### 🎯 核心價值
+### Core Value
 - **視覺化複雜基礎設施**：將雲端資源轉換為易理解的圖形模型
 - **智能分析**：自動識別安全風險、故障點和成本浪費
 - **即時監控**：提供動態的基礎設施健康度評估
@@ -12,7 +12,7 @@
 
 ---
 
-## 🏗️ 系統架構
+## System Architecture
 
 ### 1. 資料流程架構
 
@@ -44,7 +44,7 @@
 
 ---
 
-## 🚀 快速開始
+## 快速開始
 
 ### 環境設定
 
@@ -101,7 +101,7 @@ python main.py --mode <模式> [選項]
 
 #### 2. 可用模式
 
-##### 🔄 完整流程模式
+##### 完整流程模式
 ```bash
 # 使用真實 AWS 資料
 python main.py --mode full --region us-east-1
@@ -119,7 +119,7 @@ python main.py --mode extract --region us-west-2
 python main.py --mode extract --mock
 ```
 
-##### 💾 資料載入模式
+##### 資料載入模式
 ```bash
 # 載入指定資料檔案
 python main.py --mode load --data-path data/raw/aws_resources.json
@@ -128,7 +128,7 @@ python main.py --mode load --data-path data/raw/aws_resources.json
 python main.py --mode load
 ```
 
-##### 🔍 分析模式
+##### 分析模式
 ```bash
 # 執行所有分析
 python main.py --mode analyze
@@ -136,7 +136,7 @@ python main.py --mode analyze
 # 分析結果會儲存到 output/ 目錄
 ```
 
-##### 📊 儀表板模式
+##### 儀表板模式
 ```bash
 # 啟動視覺化儀表板
 python main.py --mode dashboard --host 0.0.0.0 --port 8050
@@ -146,7 +146,7 @@ python main.py --mode dashboard --host 0.0.0.0 --port 8050
 
 ---
 
-## 📊 分析功能
+## 分析功能
 
 ### 1. 資安漏洞分析
 
@@ -236,7 +236,7 @@ RETURN sg.GroupName, sg.GroupID, sg.Description
 
 ---
 
-## 📈 專案結構
+## 專案結構
 
 ```
 cloud-infrastructure-analysis/
@@ -285,7 +285,7 @@ cloud-infrastructure-analysis/
 
 ---
 
-## 🔧 進階配置
+## 進階配置
 
 ### 1. 自定義分析規則
 
@@ -329,7 +329,7 @@ class GCPExtractor:
 
 ---
 
-## 🚨 故障排除
+## 故障排除
 
 ### 常見問題解決
 
@@ -372,7 +372,7 @@ def paginated_query(self, query, page_size=100):
 
 ---
 
-## 🎓 學習資源
+## 學習資源
 
 ### 1. AWS 官方文件
 - [AWS EC2 文件](https://docs.aws.amazon.com/ec2/)
@@ -391,7 +391,7 @@ def paginated_query(self, query, page_size=100):
 
 ---
 
-## 🤝 貢獻指南
+## 貢獻指南
 
 ### 如何貢獻
 1. Fork 本專案
@@ -408,36 +408,18 @@ def paginated_query(self, query, page_size=100):
 
 ---
 
-## 📄 授權條款
+## 授權條款
 
 本專案採用 MIT 授權條款。詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-## 📞 聯絡資訊
+## 聯絡資訊
 
 - **作者**: 梁祐嘉
 - **學號**: 01157145
 - **班級**: 資工 4B
 - **課程**: 高等資料庫系統
 - **Email**: [ch993115@gmail.com]
-
----
-
-## 📝 更新日誌
-
-### v2.0.0 (2025-10-21)
-- ✨ 基於 Cartography 架構的全面升級
-- 🔧 改進的資料模型和載入器
-- 📊 進階安全分析引擎
-- 🎨 模組化架構設計
-- 📚 完善文件和使用指南
-
-### v1.0.0 (2025-01-30)
-- 🎉 初始版本發布
-- ☁️ 支援 AWS 資源擷取
-- 🔍 實作三大分析功能
-- 📊 提供互動式視覺化儀表板
-- 🆓 支援免費測試環境
 
 ---
