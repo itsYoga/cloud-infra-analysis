@@ -1,0 +1,514 @@
+"""
+基於 Cartography 架構的改進 Neo4j 載入器
+
+這個模組實作了更高效、可擴展的資料載入機制，
+參考了 Cartography 的批次處理和事務管理最佳實踐。
+"""
+
+import time
+import logging
+from typing import Dict, List, Any, Optional, Union
+from functools import wraps
+from dataclasses import dataclass
+
+import neo4j
+from neo4j import GraphDatabase
+
+from ..data_models import (
+    CartographyNodeSchema, 
+    CartographyRelSchema,
+    create_indexes,
+    get_schema,
+    get_all_schemas
+)
+
+logger = logging.getLogger(__name__)
+
+
+def timeit(func):
+    """計時裝飾器"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        logger.info(f"{func.__name__} 執行時間: {end_time - start_time:.2f} 秒")
+        return result
+    return wrapper
+
+
+@dataclass
+class LoadConfig:
+    """載入配置"""
+    batch_size: int = 1000
+    max_retries: int = 3
+    retry_delay: float = 1.0
+    create_indexes: bool = True
+    cleanup_old_data: bool = True
+
+
+class ImprovedNeo4jLoader:
+    """改進的 Neo4j 載入器，基於 Cartography 架構"""
+    
+    def __init__(self, uri: str, username: str, password: str, database: str = "neo4j"):
+        self.uri = uri
+        self.username = username
+        self.password = password
+        self.database = database
+        self.driver = None
+        self.session = None
+        self.update_tag = int(time.time())
+        
+    def connect(self) -> bool:
+        """連接到 Neo4j"""
+        try:
+            self.driver = GraphDatabase.driver(
+                self.uri, 
+                auth=(self.username, self.password)
+            )
+            self.session = self.driver.session(database=self.database)
+            
+            # 測試連接
+            self.session.run("RETURN 1")
+            logger.info("成功連接到 Neo4j")
+            return True
+            
+        except Exception as e:
+            logger.error(f"連接 Neo4j 失敗: {e}")
+            return False
+    
+    def close(self):
+        """關閉連接"""
+        if self.session:
+            self.session.close()
+        if self.driver:
+            self.driver.close()
+        logger.info("Neo4j 連接已關閉")
+    
+    def setup_schema(self):
+        """設定資料庫架構"""
+        if not self.session:
+            raise RuntimeError("未連接到 Neo4j")
+        
+        logger.info("設定資料庫架構...")
+        
+        # 創建索引
+        create_indexes(self.session)
+        
+        # 創建約束
+        self._create_constraints()
+        
+        logger.info("資料庫架構設定完成")
+    
+    def _create_constraints(self):
+        """創建約束"""
+        constraints = [
+            "CREATE CONSTRAINT IF NOT EXISTS FOR (n:EC2Instance) REQUIRE n.id IS UNIQUE",
+            "CREATE CONSTRAINT IF NOT EXISTS FOR (n:SecurityGroup) REQUIRE n.id IS UNIQUE",
+            "CREATE CONSTRAINT IF NOT EXISTS FOR (n:VPC) REQUIRE n.id IS UNIQUE",
+            "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Subnet) REQUIRE n.id IS UNIQUE",
+            "CREATE CONSTRAINT IF NOT EXISTS FOR (n:EBSVolume) REQUIRE n.id IS UNIQUE",
+            "CREATE CONSTRAINT IF NOT EXISTS FOR (n:SecurityRule) REQUIRE n.id IS UNIQUE",
+        ]
+        
+        for constraint in constraints:
+            try:
+                self.session.run(constraint)
+            except Exception as e:
+                logger.warning(f"創建約束失敗: {constraint}, 錯誤: {e}")
+    
+    @timeit
+    def load_nodes(self, node_type: str, data: List[Dict[str, Any]], 
+                   region: str = None, account_id: str = None) -> bool:
+        """載入節點資料"""
+        if not self.session:
+            raise RuntimeError("未連接到 Neo4j")
+        
+        schema = get_schema(node_type)
+        if not schema:
+            logger.error(f"未知的節點類型: {node_type}")
+            return False
+        
+        logger.info(f"載入 {len(data)} 個 {node_type} 節點...")
+        
+        try:
+            # 批次處理
+            batch_size = 1000
+            for i in range(0, len(data), batch_size):
+                batch = data[i:i + batch_size]
+                self._load_node_batch(schema, batch, region, account_id)
+            
+            logger.info(f"成功載入 {len(data)} 個 {node_type} 節點")
+            return True
+            
+        except Exception as e:
+            logger.error(f"載入 {node_type} 節點失敗: {e}")
+            return False
+    
+    def _load_node_batch(self, schema: CartographyNodeSchema, batch: List[Dict], 
+                        region: str = None, account_id: str = None):
+        """載入節點批次"""
+        # 構建 Cypher 查詢
+        query = self._build_node_query(schema)
+        
+        # 準備參數
+        params = {
+            'batch': batch,
+            'region': region,
+            'account_id': account_id,
+            'lastupdated': self.update_tag
+        }
+        
+        # 執行查詢
+        self.session.run(query, params)
+    
+    def _build_node_query(self, schema: CartographyNodeSchema) -> str:
+        """構建節點查詢"""
+        # 獲取屬性列表
+        properties = schema.properties.__dict__
+        
+        # 構建 MERGE 查詢
+        query = f"""
+        UNWIND $batch as item
+        MERGE (n:{schema.label} {{id: item.{schema.properties.id.field_name}}})
+        SET n += {{
+            {', '.join([f'{prop}: item.{prop_ref.field_name}' 
+                       for prop, prop_ref in properties.items() 
+                       if prop != 'id'])}
+        }}
+        SET n.lastupdated = $lastupdated
+        """
+        
+        # 添加區域和帳戶 ID
+        if hasattr(schema.properties, 'region'):
+            query += "SET n.region = $region\n"
+        if hasattr(schema.properties, 'account_id'):
+            query += "SET n.account_id = $account_id\n"
+        
+        return query
+    
+    @timeit
+    def load_relationships(self, rel_type: str, data: List[Dict[str, Any]]) -> bool:
+        """載入關係資料"""
+        if not self.session:
+            raise RuntimeError("未連接到 Neo4j")
+        
+        logger.info(f"載入 {len(data)} 個 {rel_type} 關係...")
+        
+        try:
+            # 批次處理
+            batch_size = 1000
+            for i in range(0, len(data), batch_size):
+                batch = data[i:i + batch_size]
+                self._load_relationship_batch(rel_type, batch)
+            
+            logger.info(f"成功載入 {len(data)} 個 {rel_type} 關係")
+            return True
+            
+        except Exception as e:
+            logger.error(f"載入 {rel_type} 關係失敗: {e}")
+            return False
+    
+    def _load_relationship_batch(self, rel_type: str, batch: List[Dict]):
+        """載入關係批次"""
+        # 根據關係類型構建查詢
+        if rel_type == "IS_MEMBER_OF":
+            query = """
+            UNWIND $batch as item
+            MATCH (instance:EC2Instance {id: item.instance_id})
+            MATCH (sg:SecurityGroup {id: item.group_id})
+            MERGE (instance)-[r:IS_MEMBER_OF]->(sg)
+            SET r.lastupdated = $lastupdated
+            """
+        elif rel_type == "LOCATED_IN":
+            query = """
+            UNWIND $batch as item
+            MATCH (instance:EC2Instance {id: item.instance_id})
+            MATCH (subnet:Subnet {id: item.subnet_id})
+            MERGE (instance)-[r:LOCATED_IN]->(subnet)
+            SET r.lastupdated = $lastupdated
+            """
+        elif rel_type == "ATTACHES_TO":
+            query = """
+            UNWIND $batch as item
+            MATCH (volume:EBSVolume {id: item.volume_id})
+            MATCH (instance:EC2Instance {id: item.instance_id})
+            MERGE (volume)-[r:ATTACHES_TO]->(instance)
+            SET r.lastupdated = $lastupdated
+            """
+        elif rel_type == "HAS_RULE":
+            query = """
+            UNWIND $batch as item
+            MATCH (sg:SecurityGroup {id: item.group_id})
+            MATCH (rule:SecurityRule {id: item.rule_id})
+            MERGE (sg)-[r:HAS_RULE]->(rule)
+            SET r.lastupdated = $lastupdated
+            """
+        else:
+            logger.warning(f"未知的關係類型: {rel_type}")
+            return
+        
+        # 執行查詢
+        params = {
+            'batch': batch,
+            'lastupdated': self.update_tag
+        }
+        self.session.run(query, params)
+    
+    @timeit
+    def cleanup_old_data(self, node_types: List[str] = None):
+        """清理舊資料"""
+        if not self.session:
+            raise RuntimeError("未連接到 Neo4j")
+        
+        if node_types is None:
+            node_types = list(get_all_schemas().keys())
+        
+        logger.info(f"清理舊資料: {node_types}")
+        
+        for node_type in node_types:
+            try:
+                query = f"""
+                MATCH (n:{node_type})
+                WHERE n.lastupdated < $update_tag
+                DETACH DELETE n
+                """
+                self.session.run(query, {'update_tag': self.update_tag})
+                logger.info(f"清理 {node_type} 舊資料完成")
+            except Exception as e:
+                logger.error(f"清理 {node_type} 舊資料失敗: {e}")
+    
+    @timeit
+    def load_aws_data(self, data: Dict[str, Any], region: str = None, 
+                     account_id: str = None) -> bool:
+        """載入 AWS 資料"""
+        if not self.session:
+            raise RuntimeError("未連接到 Neo4j")
+        
+        logger.info("開始載入 AWS 資料...")
+        
+        try:
+            # 載入節點
+            self._load_aws_nodes(data, region, account_id)
+            
+            # 載入關係
+            self._load_aws_relationships(data)
+            
+            logger.info("AWS 資料載入完成")
+            return True
+            
+        except Exception as e:
+            logger.error(f"載入 AWS 資料失敗: {e}")
+            return False
+    
+    def _load_aws_nodes(self, data: Dict[str, Any], region: str, account_id: str):
+        """載入 AWS 節點"""
+        # 載入 EC2 實例
+        if 'ec2_instances' in data:
+            instances = self._extract_ec2_instances(data['ec2_instances'])
+            if instances:
+                self.load_nodes("EC2Instance", instances, region, account_id)
+        
+        # 載入安全群組
+        if 'security_groups' in data:
+            security_groups = self._extract_security_groups(data['security_groups'])
+            if security_groups:
+                self.load_nodes("SecurityGroup", security_groups, region, account_id)
+        
+        # 載入 VPC
+        if 'vpcs' in data:
+            vpcs = self._extract_vpcs(data['vpcs'])
+            if vpcs:
+                self.load_nodes("VPC", vpcs, region, account_id)
+        
+        # 載入子網路
+        if 'subnets' in data:
+            subnets = self._extract_subnets(data['subnets'])
+            if subnets:
+                self.load_nodes("Subnet", subnets, region, account_id)
+        
+        # 載入 EBS 磁碟
+        if 'ebs_volumes' in data:
+            volumes = self._extract_ebs_volumes(data['ebs_volumes'])
+            if volumes:
+                self.load_nodes("EBSVolume", volumes, region, account_id)
+    
+    def _extract_ec2_instances(self, ec2_data: Dict) -> List[Dict]:
+        """提取 EC2 實例資料"""
+        instances = []
+        
+        if isinstance(ec2_data, dict) and 'Reservations' in ec2_data:
+            for reservation in ec2_data['Reservations']:
+                for instance in reservation['Instances']:
+                    instances.append({
+                        'InstanceId': instance.get('InstanceID'),
+                        'Name': instance.get('Name'),
+                        'State': instance.get('State', {}).get('Name', 'unknown'),
+                        'InstanceType': instance.get('InstanceType'),
+                        'PublicIpAddress': instance.get('PublicIpAddress'),
+                        'PrivateIpAddress': instance.get('PrivateIpAddress'),
+                        'ImageId': instance.get('ImageId'),
+                        'LaunchTime': instance.get('LaunchTime'),
+                        'AvailabilityZone': instance.get('Placement', {}).get('AvailabilityZone'),
+                        'Region': instance.get('Region', 'unknown')
+                    })
+        
+        return instances
+    
+    def _extract_security_groups(self, sg_data: Dict) -> List[Dict]:
+        """提取安全群組資料"""
+        security_groups = []
+        
+        if isinstance(sg_data, dict) and 'SecurityGroups' in sg_data:
+            for sg in sg_data['SecurityGroups']:
+                security_groups.append({
+                    'GroupId': sg.get('GroupID'),
+                    'GroupName': sg.get('GroupName'),
+                    'Description': sg.get('Description'),
+                    'VpcId': sg.get('VpcId'),
+                    'Region': sg.get('Region', 'unknown')
+                })
+        
+        return security_groups
+    
+    def _extract_vpcs(self, vpc_data: Dict) -> List[Dict]:
+        """提取 VPC 資料"""
+        vpcs = []
+        
+        if isinstance(vpc_data, dict) and 'Vpcs' in vpc_data:
+            for vpc in vpc_data['Vpcs']:
+                vpcs.append({
+                    'VpcId': vpc.get('VpcId'),
+                    'Name': vpc.get('Name'),
+                    'CidrBlock': vpc.get('CidrBlock'),
+                    'State': vpc.get('State'),
+                    'IsDefault': vpc.get('IsDefault', False),
+                    'Region': vpc.get('Region', 'unknown')
+                })
+        
+        return vpcs
+    
+    def _extract_subnets(self, subnet_data: Dict) -> List[Dict]:
+        """提取子網路資料"""
+        subnets = []
+        
+        if isinstance(subnet_data, dict) and 'Subnets' in subnet_data:
+            for subnet in subnet_data['Subnets']:
+                subnets.append({
+                    'SubnetId': subnet.get('SubnetId'),
+                    'Name': subnet.get('Name'),
+                    'CidrBlock': subnet.get('CidrBlock'),
+                    'AvailabilityZone': subnet.get('AvailabilityZone'),
+                    'VpcId': subnet.get('VpcId'),
+                    'Region': subnet.get('Region', 'unknown')
+                })
+        
+        return subnets
+    
+    def _extract_ebs_volumes(self, volume_data: Dict) -> List[Dict]:
+        """提取 EBS 磁碟資料"""
+        volumes = []
+        
+        if isinstance(volume_data, dict) and 'Volumes' in volume_data:
+            for volume in volume_data['Volumes']:
+                volumes.append({
+                    'VolumeId': volume.get('VolumeId'),
+                    'Size': volume.get('Size'),
+                    'VolumeType': volume.get('VolumeType'),
+                    'State': volume.get('State'),
+                    'Encrypted': volume.get('Encrypted', False),
+                    'KmsKeyId': volume.get('KmsKeyId'),
+                    'Region': volume.get('Region', 'unknown')
+                })
+        
+        return volumes
+    
+    def _load_aws_relationships(self, data: Dict[str, Any]):
+        """載入 AWS 關係"""
+        # 載入 EC2 實例到安全群組的關係
+        if 'ec2_instances' in data and 'security_groups' in data:
+            self._load_ec2_security_group_relationships(data)
+        
+        # 載入 EC2 實例到子網路的關係
+        if 'ec2_instances' in data and 'subnets' in data:
+            self._load_ec2_subnet_relationships(data)
+        
+        # 載入 EBS 磁碟到 EC2 實例的關係
+        if 'ebs_volumes' in data and 'ec2_instances' in data:
+            self._load_ebs_ec2_relationships(data)
+    
+    def _load_ec2_security_group_relationships(self, data: Dict):
+        """載入 EC2 實例到安全群組的關係"""
+        relationships = []
+        
+        if isinstance(data['ec2_instances'], dict) and 'Reservations' in data['ec2_instances']:
+            for reservation in data['ec2_instances']['Reservations']:
+                for instance in reservation['Instances']:
+                    instance_id = instance.get('InstanceID')
+                    if instance.get('SecurityGroups'):
+                        for sg in instance['SecurityGroups']:
+                            relationships.append({
+                                'instance_id': instance_id,
+                                'group_id': sg.get('GroupId')
+                            })
+        
+        if relationships:
+            self.load_relationships("IS_MEMBER_OF", relationships)
+    
+    def _load_ec2_subnet_relationships(self, data: Dict):
+        """載入 EC2 實例到子網路的關係"""
+        relationships = []
+        
+        if isinstance(data['ec2_instances'], dict) and 'Reservations' in data['ec2_instances']:
+            for reservation in data['ec2_instances']['Reservations']:
+                for instance in reservation['Instances']:
+                    instance_id = instance.get('InstanceID')
+                    subnet_id = instance.get('SubnetId')
+                    if instance_id and subnet_id:
+                        relationships.append({
+                            'instance_id': instance_id,
+                            'subnet_id': subnet_id
+                        })
+        
+        if relationships:
+            self.load_relationships("LOCATED_IN", relationships)
+    
+    def _load_ebs_ec2_relationships(self, data: Dict):
+        """載入 EBS 磁碟到 EC2 實例的關係"""
+        relationships = []
+        
+        if isinstance(data['ebs_volumes'], dict) and 'Volumes' in data['ebs_volumes']:
+            for volume in data['ebs_volumes']['Volumes']:
+                volume_id = volume.get('VolumeId')
+                if volume.get('Attachments'):
+                    for attachment in volume['Attachments']:
+                        instance_id = attachment.get('InstanceId')
+                        if volume_id and instance_id:
+                            relationships.append({
+                                'volume_id': volume_id,
+                                'instance_id': instance_id
+                            })
+        
+        if relationships:
+            self.load_relationships("ATTACHES_TO", relationships)
+    
+    def get_statistics(self) -> Dict[str, int]:
+        """獲取資料庫統計資訊"""
+        if not self.session:
+            raise RuntimeError("未連接到 Neo4j")
+        
+        stats = {}
+        
+        # 獲取節點數量
+        node_types = list(get_all_schemas().keys())
+        for node_type in node_types:
+            result = self.session.run(f"MATCH (n:{node_type}) RETURN count(n) as count")
+            stats[node_type] = result.single()['count']
+        
+        # 獲取關係數量
+        relationship_types = ["IS_MEMBER_OF", "LOCATED_IN", "ATTACHES_TO", "HAS_RULE"]
+        for rel_type in relationship_types:
+            result = self.session.run(f"MATCH ()-[r:{rel_type}]->() RETURN count(r) as count")
+            stats[rel_type] = result.single()['count']
+        
+        return stats

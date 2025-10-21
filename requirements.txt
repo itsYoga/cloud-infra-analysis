@@ -1,0 +1,27 @@
+# 雲端基礎設施視覺化分析平台 - 最小化套件需求
+
+# 核心資料庫與圖形處理
+neo4j>=5.0.0
+
+# 資料處理與分析
+pandas>=2.0.0
+numpy>=1.24.0
+networkx>=3.0.0
+
+# 視覺化
+matplotlib>=3.7.0
+plotly>=5.15.0
+dash>=2.14.0
+dash-cytoscape>=0.3.0
+
+# 資料格式處理
+python-dotenv>=1.0.0
+
+# 網路與 HTTP
+requests>=2.31.0
+
+# 日誌與監控
+loguru>=0.7.0
+
+# 開發與測試
+pytest>=7.4.0
