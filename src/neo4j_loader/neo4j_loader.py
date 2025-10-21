@@ -742,8 +742,8 @@ class ImprovedNeo4jLoader:
             return [record.data() for record in result]
         
         try:
-            # 使用 write_transaction 替代 read_transaction（相容性問題）
-            findings = self.session.write_transaction(_run_analysis_tx)
+            # 使用 execute_write 因為查詢中包含 SET 操作
+            findings = self.session.execute_write(_run_analysis_tx)
             logger.info(f"分析 {analysis_type} 完成，發現 {len(findings)} 個問題")
             return findings
         except Exception as e:

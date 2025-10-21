@@ -37,10 +37,10 @@
 
 #### 關係類型 (Relationship Types)
 - **IS_MEMBER_OF**: EC2 實例屬於安全群組
-- **BELONGS_TO**: 資源屬於 VPC
+- **LOCATED_IN**: 資源位於子網路中
 - **ATTACHES_TO**: EBS 磁碟附加到 EC2
-- **CONNECTS_TO**: 資源間的網路連接
-- **HAS_RULE**: 安全群組包含規則
+- **CONTAINS**: VPC 包含子網路，子網路包含實例
+- **HAS_RULE**: 安全群組包含規則（如果存在）
 
 ---
 
@@ -158,23 +158,18 @@ python main.py --mode dashboard --host 0.0.0.0 --port 8050
 
 #### 暴露服務檢測
 ```cypher
-// 找出所有暴露於公網的 SSH 服務
-MATCH (instance:EC2Instance)-[:IS_MEMBER_OF]->(sg:SecurityGroup),
-      (sg)-[:HAS_RULE]->(rule:Rule)
-WHERE rule.SourceCIDR = '0.0.0.0/0' 
-  AND rule.PortRange CONTAINS '22'
-  AND rule.Protocol = 'tcp'
+// 找出所有 EC2 實例及其安全群組
+MATCH (instance:EC2Instance)-[:IS_MEMBER_OF]->(sg:SecurityGroup)
 RETURN instance.Name, instance.PublicIP, sg.GroupName
+LIMIT 10
 ```
 
-#### 過度寬鬆規則識別
+#### 安全群組分析
 ```cypher
-// 找出允許從任何 IP 存取任何連接埠的規則
-MATCH (sg:SecurityGroup)-[:HAS_RULE]->(rule:Rule)
-WHERE rule.SourceCIDR = '0.0.0.0/0'
-  AND rule.PortRange = '0-65535'
-  AND rule.Protocol = 'tcp'
-RETURN sg.GroupName, rule.RuleID, rule.Description
+// 找出所有安全群組
+MATCH (sg:SecurityGroup)
+RETURN sg.GroupName, sg.GroupID, sg.Description
+LIMIT 10
 ```
 
 ### 2. 故障衝擊分析
@@ -184,17 +179,20 @@ RETURN sg.GroupName, rule.RuleID, rule.Description
 // 找出連接數最多的節點（關鍵節點）
 MATCH (n)
 WITH n, size((n)--()) as connection_count
-WHERE connection_count > 5
-RETURN n.Name, n.InstanceID, connection_count
+WHERE connection_count > 2
+RETURN labels(n)[0] as node_type, n.Name, connection_count
 ORDER BY connection_count DESC
+LIMIT 10
 ```
 
-#### 依賴關係分析
+#### 網路拓撲分析
 ```cypher
-// 分析特定實例的依賴關係
-MATCH path = (start:EC2Instance {InstanceID: 'i-1234567890abcdef0'})-[:CONNECTS_TO*1..3]-(dependent)
-RETURN path, length(path) as dependency_depth
-ORDER BY dependency_depth
+// 分析 VPC 和子網路的結構
+MATCH (vpc:VPC)
+OPTIONAL MATCH (vpc)-[:CONTAINS]->(subnet:Subnet)
+OPTIONAL MATCH (subnet)-[:CONTAINS]->(instance:EC2Instance)
+RETURN vpc.VpcId, collect(DISTINCT subnet.SubnetId) as subnets, 
+       collect(DISTINCT instance.Name) as instances
 ```
 
 ### 3. 成本優化分析
@@ -205,9 +203,9 @@ ORDER BY dependency_depth
 MATCH (volume:EBSVolume)
 WHERE NOT (volume)-[:ATTACHES_TO]->(:EC2Instance)
   AND volume.State = 'available'
-RETURN volume.VolumeId, volume.Size, volume.VolumeType,
-       volume.CreationDate
+RETURN volume.VolumeId, volume.Size, volume.VolumeType
 ORDER BY volume.Size DESC
+LIMIT 10
 ```
 
 #### 未使用安全群組
@@ -216,6 +214,7 @@ ORDER BY volume.Size DESC
 MATCH (sg:SecurityGroup)
 WHERE NOT (sg)<-[:IS_MEMBER_OF]-(:EC2Instance)
 RETURN sg.GroupName, sg.GroupID, sg.Description
+LIMIT 10
 ```
 
 ---
