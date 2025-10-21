@@ -60,6 +60,11 @@ neo4j/
 .env.test.local
 .env.production.local
 
+# AWS credentials (SECURITY: Never commit these!)
+.aws/
+~/.aws/
+aws-credentials.json
+
 # Temporary files
 *.tmp
 *.temp
