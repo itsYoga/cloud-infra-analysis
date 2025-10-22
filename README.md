@@ -4,12 +4,71 @@
 
 本專案是一個基於 **Neo4j 圖形資料庫**的雲端基礎設施分析平台，旨在透過圖形資料模型整合與分析 AWS 等雲端環境中的複雜資源、關聯與依賴關係。系統提供**資安漏洞分析**、**故障衝擊分析**與**成本優化**等核心功能，並提供互動式視覺化儀表板。
 
-
 ### 核心價值
 - **視覺化複雜基礎設施**：將雲端資源轉換為易理解的圖形模型
 - **智能分析**：自動識別安全風險、故障點和成本浪費
 - **即時監控**：提供動態的基礎設施健康度評估
 - **決策支援**：為基礎設施優化提供數據驅動的建議
+
+## 📋 圖形資料庫最終報告
+
+### 報告內容
+本專案已完成圖形資料庫最終報告，包含以下內容：
+
+1. **Neo4j 產品與服務**: 使用 Neo4j Aura 雲端服務
+2. **原始資料格式**: JSON 格式的模擬 AWS 資源資料
+3. **圖形資料模型**: 7 種節點類型，4 種關係類型
+4. **功能查詢**: 12 個核心 Cypher 查詢，涵蓋三大分析功能
+5. **系統介面**: 命令行操作和 Neo4j Aura Console 操作範例
+
+### 報告文件
+- **Markdown 版本**: `GRAPH_DATABASE_FINAL_REPORT.md`
+- **LaTeX 版本**: `Report/final_report.tex`
+- **PDF 版本**: `Report/final_report.pdf`
+
+### 核心查詢範例
+
+#### 安全分析
+```cypher
+// 未加密的 EBS 磁碟
+MATCH (v:EBSVolume)
+WHERE v.encrypted = false
+RETURN v.volumeid, v.region, v.state, v.size
+
+// 暴露的安全規則
+MATCH (sg:SecurityGroup)-[:HAS_RULE]->(sr:SecurityRule)
+WHERE sr.sourcecidr = '0.0.0.0/0' AND sr.direction = 'inbound'
+RETURN sg.name, sr.portrange, sr.protocol
+```
+
+#### 故障分析
+```cypher
+// 關鍵節點
+MATCH (n)
+WITH n, COUNT { (n)--() } as connection_count
+WHERE connection_count > 2
+RETURN labels(n)[0] AS NodeType, connection_count
+ORDER BY connection_count DESC
+
+// 單點故障
+MATCH (n)
+WITH n, COUNT { (n)--() } as connection_count
+WHERE connection_count = 1
+RETURN labels(n)[0] AS NodeType
+```
+
+#### 成本優化
+```cypher
+// 孤兒 EBS 磁碟
+MATCH (v:EBSVolume)
+WHERE NOT (v)-[:ATTACHES_TO]->(:EC2Instance)
+RETURN v.volumeid, v.size, v.state
+
+// 未使用的安全群組
+MATCH (sg:SecurityGroup)
+WHERE NOT (:EC2Instance)-[:IS_MEMBER_OF]->(sg)
+RETURN sg.name, sg.groupid
+```
 
 ---
 
