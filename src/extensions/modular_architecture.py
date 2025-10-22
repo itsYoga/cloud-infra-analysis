@@ -137,6 +137,7 @@ class ModuleRegistry:
         self.modules: Dict[str, Type[BaseModule]] = {}
         self.instances: Dict[str, BaseModule] = {}
         self.module_info: Dict[str, ModuleInfo] = {}
+        self.logger = logging.getLogger(self.__class__.__name__)
     
     def register_module(self, module_class: Type[BaseModule], 
                        module_info: ModuleInfo) -> bool:

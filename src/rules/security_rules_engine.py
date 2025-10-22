@@ -75,10 +75,10 @@ class ExposedSSHRule(SecurityRule):
         return """
         MATCH (instance:EC2Instance)-[:IS_MEMBER_OF]->(sg:SecurityGroup),
               (sg)-[:HAS_RULE]->(rule:SecurityRule)
-        WHERE rule.SourceCIDR = '0.0.0.0/0' 
-          AND rule.PortRange CONTAINS '22'
-          AND rule.Protocol = 'tcp'
-          AND rule.Direction = 'inbound'
+        WHERE rule.sourcecidr = '0.0.0.0/0' 
+          AND rule.portrange CONTAINS '22'
+          AND rule.protocol = 'tcp'
+          AND rule.direction = 'inbound'
         RETURN instance, sg, rule
         """
     
@@ -134,10 +134,10 @@ class ExposedRDPSRule(SecurityRule):
         return """
         MATCH (instance:EC2Instance)-[:IS_MEMBER_OF]->(sg:SecurityGroup),
               (sg)-[:HAS_RULE]->(rule:SecurityRule)
-        WHERE rule.SourceCIDR = '0.0.0.0/0' 
-          AND rule.PortRange CONTAINS '3389'
-          AND rule.Protocol = 'tcp'
-          AND rule.Direction = 'inbound'
+        WHERE rule.sourcecidr = '0.0.0.0/0' 
+          AND rule.portrange CONTAINS '3389'
+          AND rule.protocol = 'tcp'
+          AND rule.direction = 'inbound'
         RETURN instance, sg, rule
         """
     
@@ -192,10 +192,10 @@ class OverlyPermissiveRule(SecurityRule):
     def get_cypher_query(self) -> str:
         return """
         MATCH (sg:SecurityGroup)-[:HAS_RULE]->(rule:SecurityRule)
-        WHERE rule.SourceCIDR = '0.0.0.0/0'
-          AND rule.PortRange = '0-65535'
-          AND rule.Protocol = 'tcp'
-          AND rule.Direction = 'inbound'
+        WHERE rule.sourcecidr = '0.0.0.0/0'
+          AND rule.portrange = '0-65535'
+          AND rule.protocol = 'tcp'
+          AND rule.direction = 'inbound'
         RETURN sg, rule
         """
     
@@ -407,8 +407,9 @@ class NetworkSegmentationRule(SecurityRule):
     
     def get_cypher_query(self) -> str:
         return """
-        MATCH (vpc:VPC)-[:CONTAINS]->(subnet:Subnet)
-        OPTIONAL MATCH (subnet)-[:CONTAINS]->(instance:EC2Instance)
+        MATCH (vpc:VPC)
+        OPTIONAL MATCH (subnet:Subnet)-[:LOCATED_IN]->(vpc)
+        OPTIONAL MATCH (instance:EC2Instance)-[:LOCATED_IN]->(subnet)
         RETURN vpc, subnet, count(instance) as instance_count
         ORDER BY vpc.id, subnet.id
         """
@@ -421,9 +422,9 @@ class NetworkSegmentationRule(SecurityRule):
         affected_resources = []
         
         for record in result:
-            vpc = dict(record['vpc'])
-            subnet = dict(record['subnet'])
-            instance_count = record['instance_count']
+            vpc = dict(record['vpc']) if record['vpc'] else {}
+            subnet = dict(record['subnet']) if record['subnet'] else {}
+            instance_count = record['instance_count'] or 0
             
             affected_resources.append({
                 'type': 'NetworkSegment',

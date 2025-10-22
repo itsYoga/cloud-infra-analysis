@@ -309,6 +309,8 @@ class EBSVolumeNodeProperties(CartographyNodeProperties):
     volumetype: PropertyRef = PropertyRef("VolumeType")
     state: PropertyRef = PropertyRef("State")
     encrypted: PropertyRef = PropertyRef("Encrypted")
+    iops: PropertyRef = PropertyRef("Iops")
+    creationdate: PropertyRef = PropertyRef("CreationDate")
     kmskeyid: PropertyRef = PropertyRef("KmsKeyId")
     region: PropertyRef = PropertyRef("Region", set_in_kwargs=True)
     lastupdated: PropertyRef = PropertyRef("lastupdated", set_in_kwargs=True)
@@ -406,6 +408,30 @@ class SecurityRuleSchema(CartographyNodeSchema):
             ])
 
 
+@dataclass(frozen=True)
+class S3BucketNodeProperties(CartographyNodeProperties):
+    """S3 儲存桶節點屬性"""
+    id: PropertyRef = PropertyRef("Name")
+    lastupdated: PropertyRef = PropertyRef("lastupdated")
+    name: PropertyRef = PropertyRef("Name")
+    creationdate: PropertyRef = PropertyRef("CreationDate")
+    arn: PropertyRef = PropertyRef("Arn")
+    region: PropertyRef = PropertyRef("Region")
+
+
+@dataclass(frozen=True)
+class S3BucketSchema(CartographyNodeSchema):
+    """S3 儲存桶架構"""
+    label: str = "S3Bucket"
+    properties: S3BucketNodeProperties = S3BucketNodeProperties()
+    sub_resource_relationship: EC2InstanceToAWSAccountRel = EC2InstanceToAWSAccountRel()
+    other_relationships: List[CartographyRelSchema] = None
+    
+    def __post_init__(self):
+        if self.other_relationships is None:
+            object.__setattr__(self, 'other_relationships', [])
+
+
 # ============================================================================
 # 索引定義
 # ============================================================================
@@ -449,6 +475,12 @@ INDEXES = [
     "CREATE INDEX IF NOT EXISTS FOR (n:SecurityRule) ON (n.ruleid)",
     "CREATE INDEX IF NOT EXISTS FOR (n:SecurityRule) ON (n.protocol)",
     "CREATE INDEX IF NOT EXISTS FOR (n:SecurityRule) ON (n.direction)",
+    
+    # S3 儲存桶索引
+    "CREATE INDEX IF NOT EXISTS FOR (n:S3Bucket) ON (n.id)",
+    "CREATE INDEX IF NOT EXISTS FOR (n:S3Bucket) ON (n.lastupdated)",
+    "CREATE INDEX IF NOT EXISTS FOR (n:S3Bucket) ON (n.name)",
+    "CREATE INDEX IF NOT EXISTS FOR (n:S3Bucket) ON (n.region)",
 ]
 
 
@@ -472,6 +504,7 @@ SCHEMA_REGISTRY = {
     "Subnet": SubnetSchema(),
     "EBSVolume": EBSVolumeSchema(),
     "SecurityRule": SecurityRuleSchema(),
+    "S3Bucket": S3BucketSchema(),
 }
 
 

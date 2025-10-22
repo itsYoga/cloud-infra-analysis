@@ -129,7 +129,7 @@ class FailureImpactAnalyzer:
         """
         query = """
         MATCH (n)
-        WITH n, size((n)--()) as connection_count
+        WITH n, COUNT { (n)--() } as connection_count
         WHERE connection_count >= $min_connections
         RETURN 
             n,
@@ -169,7 +169,7 @@ class FailureImpactAnalyzer:
         """
         query = """
         MATCH (n)
-        WITH n, size((n)--()) as connection_count
+        WITH n, COUNT { (n)--() } as connection_count
         WHERE connection_count = 1
         RETURN 
             n,
@@ -212,8 +212,8 @@ class FailureImpactAnalyzer:
         """
         query = """
         MATCH (vpc:VPC)
-        OPTIONAL MATCH (vpc)<-[:PART_OF]-(subnet:Subnet)
-        OPTIONAL MATCH (subnet)<-[:RESIDES_IN]-(instance:EC2Instance)
+        OPTIONAL MATCH (subnet:Subnet)-[:LOCATED_IN]->(vpc)
+        OPTIONAL MATCH (instance:EC2Instance)-[:LOCATED_IN]->(subnet)
         WITH vpc, 
              collect(DISTINCT subnet) as subnets,
              collect(DISTINCT instance) as instances
@@ -226,9 +226,9 @@ class FailureImpactAnalyzer:
                 id: subnet.SubnetId,
                 az: subnet.AvailabilityZone,
                 cidr: subnet.CidrBlock,
-                instance_count: size([(subnet)<-[:RESIDES_IN]-(:EC2Instance)])
+                instance_count: COUNT { (instance:EC2Instance)-[:LOCATED_IN]->(subnet) }
             }] as subnet_details
-        ORDER BY vpc.Name
+        ORDER BY vpc.vpcid
         """
         
         try:
@@ -313,10 +313,11 @@ class FailureImpactAnalyzer:
                 # 基本統計
                 stats_query = """
                 MATCH (n)
+                WITH labels(n)[0] AS NodeType, n, COUNT { (n)--() } as connections
                 RETURN 
-                    labels(n)[0] AS NodeType,
+                    NodeType,
                     count(n) AS Count,
-                    avg(size((n)--())) AS AvgConnections
+                    avg(connections) AS AvgConnections
                 ORDER BY Count DESC
                 """
                 

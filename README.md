@@ -4,6 +4,14 @@
 
 本專案是一個基於 **Neo4j 圖形資料庫**的雲端基礎設施分析平台，旨在透過圖形資料模型整合與分析 AWS 等雲端環境中的複雜資源、關聯與依賴關係。系統提供**資安漏洞分析**、**故障衝擊分析**與**成本優化**等核心功能，並提供互動式視覺化儀表板。
 
+### 🎯 最新更新 (2025-10-22)
+- ✅ **完全修正所有警告訊息** - 系統現在無警告運行
+- ✅ **三大功能完整檢測** - 安全、故障、成本分析都能檢測出問題
+- ✅ **S3Bucket 支援** - 新增 S3 儲存桶分析功能
+- ✅ **關係類型修正** - 統一使用 `LOCATED_IN` 關係
+- ✅ **屬性名稱標準化** - 修正所有大小寫不一致問題
+- ✅ **Mock 資料增強** - 包含更豐富的測試資料
+
 ### 核心價值
 - **視覺化複雜基礎設施**：將雲端資源轉換為易理解的圖形模型
 - **智能分析**：自動識別安全風險、故障點和成本浪費
@@ -37,10 +45,9 @@
 
 #### 關係類型 (Relationship Types)
 - **IS_MEMBER_OF**: EC2 實例屬於安全群組
-- **LOCATED_IN**: 資源位於子網路中
+- **LOCATED_IN**: 資源位於子網路中（統一關係類型）
 - **ATTACHES_TO**: EBS 磁碟附加到 EC2
-- **CONTAINS**: VPC 包含子網路，子網路包含實例
-- **HAS_RULE**: 安全群組包含規則（如果存在）
+- **HAS_RULE**: 安全群組包含規則
 
 ---
 
@@ -103,11 +110,17 @@ python main.py --mode <模式> [選項]
 
 ##### 完整流程模式
 ```bash
+# 使用模擬資料（推薦，免費測試）
+python main.py --mode full --mock
+
 # 使用真實 AWS 資料（需要 AWS 認證）
 python main.py --mode full --provider aws --region us-east-1
+```
 
-# 使用模擬資料（免費測試）
-python main.py --mode full --mock
+##### 綜合分析模式（推薦）
+```bash
+# 執行三大功能完整分析
+python main.py --mode comprehensive-analyze
 ```
 
 ##### 📥 資料擷取模式
@@ -130,6 +143,9 @@ python main.py --mode load
 
 ##### 分析模式
 ```bash
+# 執行綜合分析（推薦 - 包含三大功能）
+python main.py --mode comprehensive-analyze
+
 # 執行傳統安全分析
 python main.py --mode analyze
 
@@ -187,12 +203,12 @@ LIMIT 10
 
 #### 網路拓撲分析
 ```cypher
-// 分析 VPC 和子網路的結構
+// 分析 VPC 和子網路的結構（使用統一關係類型）
 MATCH (vpc:VPC)
-OPTIONAL MATCH (vpc)-[:CONTAINS]->(subnet:Subnet)
-OPTIONAL MATCH (subnet)-[:CONTAINS]->(instance:EC2Instance)
-RETURN vpc.VpcId, collect(DISTINCT subnet.SubnetId) as subnets, 
-       collect(DISTINCT instance.Name) as instances
+OPTIONAL MATCH (subnet:Subnet)-[:LOCATED_IN]->(vpc)
+OPTIONAL MATCH (instance:EC2Instance)-[:LOCATED_IN]->(subnet)
+RETURN vpc.vpcid, collect(DISTINCT subnet.subnetid) as subnets, 
+       collect(DISTINCT instance.name) as instances
 ```
 
 ### 3. 成本優化分析
@@ -202,9 +218,9 @@ RETURN vpc.VpcId, collect(DISTINCT subnet.SubnetId) as subnets,
 // 找出未附加到任何實例的 EBS 磁碟
 MATCH (volume:EBSVolume)
 WHERE NOT (volume)-[:ATTACHES_TO]->(:EC2Instance)
-  AND volume.State = 'available'
-RETURN volume.VolumeId, volume.Size, volume.VolumeType
-ORDER BY volume.Size DESC
+  AND volume.state = 'available'
+RETURN volume.volumeid, volume.size, volume.volumetype
+ORDER BY volume.size DESC
 LIMIT 10
 ```
 
@@ -213,7 +229,16 @@ LIMIT 10
 // 找出沒有關聯任何實例的安全群組
 MATCH (sg:SecurityGroup)
 WHERE NOT (sg)<-[:IS_MEMBER_OF]-(:EC2Instance)
-RETURN sg.GroupName, sg.GroupID, sg.Description
+RETURN sg.groupname, sg.groupid, sg.description
+LIMIT 10
+```
+
+#### S3 儲存桶分析
+```cypher
+// 分析 S3 儲存桶資源
+MATCH (bucket:S3Bucket)
+RETURN bucket.name, bucket.region, bucket.creationdate
+ORDER BY bucket.creationdate DESC
 LIMIT 10
 ```
 
@@ -270,10 +295,13 @@ cloud-infrastructure-analysis/
 │       └── dashboard.py        # 互動式儀表板
 ├── data/                       # 資料目錄
 │   ├── raw/                    # 原始資料
-│   │   └── mock_aws_resources.json
+│   │   ├── mock_aws_resources.json
+│   │   └── enhanced_mock_aws_resources.json  # 增強版模擬資料
 │   └── processed/              # 處理後資料
 ├── output/                     # 分析結果輸出
-│   └── analysis_results_*.json
+│   ├── analysis_results_*.json
+│   ├── comprehensive_analysis_*.json  # 綜合分析結果
+│   └── advanced_analysis_*.json      # 進階分析結果
 ├── scripts/                    # 腳本目錄
 │   ├── create_mock_data.py     # 模擬資料生成器
 │   ├── quick_start.sh          # 快速啟動腳本
@@ -334,6 +362,28 @@ class GCPExtractor:
 ---
 
 ## 故障排除
+
+### 已修正的問題
+
+#### ✅ 屬性名稱一致性問題
+- **問題**: Neo4j 載入器將屬性轉換為小寫，但分析模組使用大寫屬性名稱
+- **解決**: 統一使用小寫屬性名稱，修正所有查詢語句
+
+#### ✅ 關係類型不一致問題  
+- **問題**: 使用 `CONTAINS`、`PART_OF`、`RESIDES_IN` 等不一致的關係類型
+- **解決**: 統一使用 `LOCATED_IN` 關係類型
+
+#### ✅ S3Bucket 節點載入問題
+- **問題**: S3Bucket 節點沒有被載入到 Neo4j
+- **解決**: 添加 S3Bucket schema 定義和載入邏輯
+
+#### ✅ 索引和約束衝突問題
+- **問題**: 創建約束時與現有索引衝突
+- **解決**: 先刪除現有索引，再創建約束
+
+#### ✅ 空值處理問題
+- **問題**: 查詢結果包含 `None` 值導致錯誤
+- **解決**: 添加空值檢查和預設值
 
 ### 常見問題解決
 

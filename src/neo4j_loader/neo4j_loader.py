@@ -116,6 +116,24 @@ class ImprovedNeo4jLoader:
     
     def _create_constraints(self):
         """創建約束"""
+        # 先刪除現有的索引，避免與約束衝突
+        drop_indexes = [
+            "DROP INDEX IF EXISTS FOR (n:EC2Instance) ON (n.id)",
+            "DROP INDEX IF EXISTS FOR (n:SecurityGroup) ON (n.id)",
+            "DROP INDEX IF EXISTS FOR (n:VPC) ON (n.id)",
+            "DROP INDEX IF EXISTS FOR (n:Subnet) ON (n.id)",
+            "DROP INDEX IF EXISTS FOR (n:EBSVolume) ON (n.id)",
+            "DROP INDEX IF EXISTS FOR (n:SecurityRule) ON (n.id)",
+            "DROP INDEX IF EXISTS FOR (n:S3Bucket) ON (n.id)",
+        ]
+        
+        for drop_index in drop_indexes:
+            try:
+                self.session.run(drop_index)
+            except Exception as e:
+                logger.debug(f"刪除索引: {drop_index}, 錯誤: {e}")
+        
+        # 創建約束
         constraints = [
             "CREATE CONSTRAINT IF NOT EXISTS FOR (n:EC2Instance) REQUIRE n.id IS UNIQUE",
             "CREATE CONSTRAINT IF NOT EXISTS FOR (n:SecurityGroup) REQUIRE n.id IS UNIQUE",
@@ -123,6 +141,7 @@ class ImprovedNeo4jLoader:
             "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Subnet) REQUIRE n.id IS UNIQUE",
             "CREATE CONSTRAINT IF NOT EXISTS FOR (n:EBSVolume) REQUIRE n.id IS UNIQUE",
             "CREATE CONSTRAINT IF NOT EXISTS FOR (n:SecurityRule) REQUIRE n.id IS UNIQUE",
+            "CREATE CONSTRAINT IF NOT EXISTS FOR (n:S3Bucket) REQUIRE n.id IS UNIQUE",
         ]
         
         for constraint in constraints:
@@ -181,15 +200,11 @@ class ImprovedNeo4jLoader:
         # 獲取屬性列表
         properties = schema.properties.__dict__
         
-        # 構建 MERGE 查詢
+        # 構建 MERGE 查詢 - 使用動態屬性載入
         query = f"""
         UNWIND $batch as item
-        MERGE (n:{schema.label} {{id: item.{schema.properties.id.field_name}}})
-        SET n += {{
-            {', '.join([f'{prop}: item.{prop_ref.field_name}' 
-                       for prop, prop_ref in properties.items() 
-                       if prop != 'id'])}
-        }}
+        MERGE (n:{schema.label} {{id: item.id}})
+        SET n += item
         SET n.lastupdated = $lastupdated
         """
         
@@ -346,6 +361,12 @@ class ImprovedNeo4jLoader:
             volumes = self._extract_ebs_volumes(data['ebs_volumes'])
             if volumes:
                 self.load_nodes("EBSVolume", volumes, region, account_id)
+        
+        # 載入 S3 儲存桶
+        if 's3_buckets' in data:
+            buckets = self._extract_s3_buckets(data['s3_buckets'])
+            if buckets:
+                self.load_nodes("S3Bucket", buckets, region, account_id)
     
     def _extract_ec2_instances(self, ec2_data: Dict) -> List[Dict]:
         """提取 EC2 實例資料"""
@@ -355,7 +376,8 @@ class ImprovedNeo4jLoader:
             for reservation in ec2_data['Reservations']:
                 for instance in reservation['Instances']:
                     instances.append({
-                        'InstanceId': instance.get('InstanceID'),
+                        'id': instance.get('InstanceId'),  # 添加 id 欄位
+                        'InstanceId': instance.get('InstanceId'),
                         'Name': instance.get('Name'),
                         'State': instance.get('State', {}).get('Name', 'unknown'),
                         'InstanceType': instance.get('InstanceType'),
@@ -376,7 +398,8 @@ class ImprovedNeo4jLoader:
         if isinstance(sg_data, dict) and 'SecurityGroups' in sg_data:
             for sg in sg_data['SecurityGroups']:
                 security_groups.append({
-                    'GroupId': sg.get('GroupID'),
+                    'id': sg.get('GroupId'),  # 添加 id 欄位
+                    'GroupId': sg.get('GroupId'),
                     'GroupName': sg.get('GroupName'),
                     'Description': sg.get('Description'),
                     'VpcId': sg.get('VpcId'),
@@ -392,6 +415,7 @@ class ImprovedNeo4jLoader:
         if isinstance(vpc_data, dict) and 'Vpcs' in vpc_data:
             for vpc in vpc_data['Vpcs']:
                 vpcs.append({
+                    'id': vpc.get('VpcId'),  # 添加 id 欄位
                     'VpcId': vpc.get('VpcId'),
                     'Name': vpc.get('Name'),
                     'CidrBlock': vpc.get('CidrBlock'),
@@ -409,6 +433,7 @@ class ImprovedNeo4jLoader:
         if isinstance(subnet_data, dict) and 'Subnets' in subnet_data:
             for subnet in subnet_data['Subnets']:
                 subnets.append({
+                    'id': subnet.get('SubnetId'),  # 添加 id 欄位
                     'SubnetId': subnet.get('SubnetId'),
                     'Name': subnet.get('Name'),
                     'CidrBlock': subnet.get('CidrBlock'),
@@ -426,16 +451,35 @@ class ImprovedNeo4jLoader:
         if isinstance(volume_data, dict) and 'Volumes' in volume_data:
             for volume in volume_data['Volumes']:
                 volumes.append({
+                    'id': volume.get('VolumeId'),  # 添加 id 欄位
                     'VolumeId': volume.get('VolumeId'),
                     'Size': volume.get('Size'),
                     'VolumeType': volume.get('VolumeType'),
                     'State': volume.get('State'),
                     'Encrypted': volume.get('Encrypted', False),
+                    'Iops': volume.get('Iops'),
+                    'CreationDate': volume.get('CreationDate'),
                     'KmsKeyId': volume.get('KmsKeyId'),
                     'Region': volume.get('Region', 'unknown')
                 })
         
         return volumes
+    
+    def _extract_s3_buckets(self, bucket_data: Dict) -> List[Dict]:
+        """提取 S3 儲存桶資料"""
+        buckets = []
+        
+        if isinstance(bucket_data, dict) and 'Buckets' in bucket_data:
+            for bucket in bucket_data['Buckets']:
+                buckets.append({
+                    'id': bucket.get('BucketName'),  # 使用 BucketName 作為 id
+                    'Name': bucket.get('BucketName'),
+                    'CreationDate': bucket.get('CreationDate'),
+                    'Arn': bucket.get('Arn'),
+                    'Region': bucket.get('Region', 'us-east-1')
+                })
+        
+        return buckets
     
     def _load_aws_relationships(self, data: Dict[str, Any]):
         """載入 AWS 關係"""
@@ -450,6 +494,10 @@ class ImprovedNeo4jLoader:
         # 載入 EBS 磁碟到 EC2 實例的關係
         if 'ebs_volumes' in data and 'ec2_instances' in data:
             self._load_ebs_ec2_relationships(data)
+        
+        # 載入安全規則節點和關係
+        if 'security_rules' in data:
+            self._load_security_rules_and_relationships(data)
     
     def _load_ec2_security_group_relationships(self, data: Dict):
         """載入 EC2 實例到安全群組的關係"""
@@ -505,6 +553,39 @@ class ImprovedNeo4jLoader:
         
         if relationships:
             self.load_relationships("ATTACHES_TO", relationships)
+    
+    def _load_security_rules_and_relationships(self, data: Dict):
+        """載入安全規則節點和關係"""
+        # 載入安全規則節點
+        if 'security_rules' in data and 'Rules' in data['security_rules']:
+            rules = []
+            for rule in data['security_rules']['Rules']:
+                rules.append({
+                    'id': rule.get('RuleId'),
+                    'RuleId': rule.get('RuleId'),
+                    'GroupId': rule.get('GroupId'),
+                    'Protocol': rule.get('Protocol'),
+                    'PortRange': rule.get('PortRange'),
+                    'SourceCIDR': rule.get('SourceCIDR'),
+                    'Direction': rule.get('Direction'),
+                    'Action': rule.get('Action'),
+                    'Description': rule.get('Description')
+                })
+            
+            if rules:
+                self.load_nodes("SecurityRule", rules)
+        
+        # 載入安全群組到安全規則的關係
+        if 'security_rules' in data and 'Rules' in data['security_rules']:
+            relationships = []
+            for rule in data['security_rules']['Rules']:
+                relationships.append({
+                    'group_id': rule.get('GroupId'),
+                    'rule_id': rule.get('RuleId')
+                })
+            
+            if relationships:
+                self.load_relationships("HAS_RULE", relationships)
     
     def get_statistics(self) -> Dict[str, int]:
         """獲取資料庫統計資訊"""

@@ -19,7 +19,10 @@ from src.data_models import create_indexes, get_all_schemas
 from src.neo4j_loader.neo4j_loader import ImprovedNeo4jLoader, LoadConfig
 from src.rules.security_rules_engine import SecurityRulesEngine
 from src.extensions.modular_architecture import ExtensionManager, ModuleType
-# 移除已刪除的模組導入
+# 導入分析模組
+from src.analysis.security_analysis import SecurityAnalyzer
+from src.analysis.failure_impact_analysis import FailureImpactAnalyzer
+from src.analysis.cost_optimization import CostOptimizationAnalyzer
 
 # 動態導入 AWS 提取器（如果可用）
 try:
@@ -45,7 +48,10 @@ class ImprovedCloudInfrastructureAnalyzer:
         self.neo4j_loader = None
         self.rules_engine = None
         self.extension_manager = ExtensionManager()
-# 移除已刪除的模組
+        # 初始化分析器
+        self.security_analyzer = None
+        self.failure_analyzer = None
+        self.cost_analyzer = None
         
         # 初始化組件
         self._initialize_components()
@@ -96,6 +102,11 @@ class ImprovedCloudInfrastructureAnalyzer:
             
             # 初始化安全規則引擎
             self.rules_engine = SecurityRulesEngine(self.neo4j_loader.session)
+            
+            # 初始化分析器
+            self.security_analyzer = SecurityAnalyzer(self.neo4j_loader.driver)
+            self.failure_analyzer = FailureImpactAnalyzer(self.neo4j_loader.driver)
+            self.cost_analyzer = CostOptimizationAnalyzer(self.neo4j_loader.driver)
             
             # 載入擴展模組
             self._load_extensions()
@@ -152,7 +163,7 @@ class ImprovedCloudInfrastructureAnalyzer:
         """擷取模擬資料"""
         try:
             # 檢查是否已有增強版模擬資料
-            mock_data_path = f"{self.config['data_dir']}/raw/mock_aws_resources.json"
+            mock_data_path = f"{self.config['data_dir']}/raw/enhanced_mock_aws_resources.json"
             if os.path.exists(mock_data_path):
                 logger.info(f"找到現有增強版模擬資料: {mock_data_path}")
                 return True
@@ -333,6 +344,78 @@ class ImprovedCloudInfrastructureAnalyzer:
             logger.error(f"進階分析執行失敗: {e}")
             return {}
     
+    def run_comprehensive_analysis(self) -> Dict[str, Any]:
+        """執行綜合分析（資安、故障衝擊、成本優化）"""
+        try:
+            logger.info("開始執行綜合分析")
+            
+            if not all([self.security_analyzer, self.failure_analyzer, self.cost_analyzer]):
+                logger.error("分析器未完全初始化")
+                return {}
+            
+            results = {}
+            
+            # 1. 資安漏洞分析
+            logger.info("執行資安漏洞分析...")
+            security_summary = self.security_analyzer.get_security_summary()
+            exposed_services = self.security_analyzer.find_exposed_services()
+            permissive_rules = self.security_analyzer.find_overly_permissive_rules()
+            unencrypted_resources = self.security_analyzer.find_unencrypted_resources()
+            
+            results['security'] = {
+                'summary': security_summary,
+                'exposed_services': exposed_services,
+                'permissive_rules': permissive_rules,
+                'unencrypted_resources': unencrypted_resources
+            }
+            
+            # 2. 故障衝擊分析
+            logger.info("執行故障衝擊分析...")
+            failure_summary = self.failure_analyzer.get_failure_impact_summary()
+            critical_nodes = self.failure_analyzer.identify_critical_nodes()
+            single_points = self.failure_analyzer.find_single_points_of_failure()
+            
+            results['failure_impact'] = {
+                'summary': failure_summary,
+                'critical_nodes': critical_nodes,
+                'single_points_of_failure': single_points
+            }
+            
+            # 3. 成本優化分析
+            logger.info("執行成本優化分析...")
+            cost_summary = self.cost_analyzer.get_cost_summary()
+            orphaned_volumes = self.cost_analyzer.find_orphaned_ebs_volumes()
+            unused_sgs = self.cost_analyzer.find_unused_security_groups()
+            stopped_instances = self.cost_analyzer.find_stopped_instances()
+            recommendations = self.cost_analyzer.get_cost_optimization_recommendations()
+            
+            results['cost_optimization'] = {
+                'summary': cost_summary,
+                'orphaned_volumes': orphaned_volumes,
+                'unused_security_groups': unused_sgs,
+                'stopped_instances': stopped_instances,
+                'recommendations': recommendations
+            }
+            
+            # 儲存綜合分析結果
+            output_path = f"{self.config['output_dir']}/comprehensive_analysis_{int(time.time())}.json"
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            
+            import json
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump({
+                    'analysis_type': 'comprehensive',
+                    'results': results,
+                    'timestamp': time.time()
+                }, f, indent=2, ensure_ascii=False)
+            
+            logger.info(f"綜合分析完成，結果儲存至: {output_path}")
+            return {'results': results, 'output_path': output_path}
+                
+        except Exception as e:
+            logger.error(f"綜合分析執行失敗: {e}")
+            return {}
+    
     def start_dashboard(self, host: str = '127.0.0.1', port: int = 8050):
         """啟動視覺化儀表板"""
         try:
@@ -403,7 +486,7 @@ class ImprovedCloudInfrastructureAnalyzer:
 def main():
     """主程式入口"""
     parser = argparse.ArgumentParser(description='改進的雲端基礎設施視覺化分析平台')
-    parser.add_argument('--mode', choices=['extract', 'load', 'analyze', 'advanced-analyze', 'dashboard', 'full'],
+    parser.add_argument('--mode', choices=['extract', 'load', 'analyze', 'advanced-analyze', 'comprehensive-analyze', 'dashboard', 'full'],
                        default='full', help='執行模式')
     parser.add_argument('--provider', default='aws', help='雲端提供商 (aws, gcp, azure)')
     parser.add_argument('--region', default='us-east-1', help='雲端區域')
@@ -411,7 +494,7 @@ def main():
     parser.add_argument('--host', default='127.0.0.1', help='儀表板主機位址')
     parser.add_argument('--port', type=int, default=8050, help='儀表板連接埠')
     parser.add_argument('--config', default='.env', help='設定檔路徑')
-    parser.add_argument('--mock', action='store_true', help='使用模擬資料（免費測試）')
+    parser.add_argument('--mock', action='store_true', default=True, help='使用模擬資料（免費測試）')
     parser.add_argument('--rules', nargs='*', help='指定要執行的安全規則')
     parser.add_argument('--analysis-type', choices=['security', 'cost'], default='security', 
                        help='進階分析類型')
@@ -430,6 +513,9 @@ def main():
             success = analyzer.run_analysis(args.rules) is not None
         elif args.mode == 'advanced-analyze':
             result = analyzer.run_advanced_analysis(args.analysis_type)
+            success = bool(result)
+        elif args.mode == 'comprehensive-analyze':
+            result = analyzer.run_comprehensive_analysis()
             success = bool(result)
         elif args.mode == 'dashboard':
             analyzer.start_dashboard(args.host, args.port)

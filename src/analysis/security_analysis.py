@@ -33,19 +33,19 @@ class SecurityAnalyzer:
         """
         query = """
         MATCH (instance:EC2Instance)-[:IS_MEMBER_OF]->(sg:SecurityGroup),
-              (sg)-[:HAS_RULE]->(rule:Rule)
-        WHERE rule.SourceCIDR CONTAINS '0.0.0.0/0' 
-          AND rule.PortRange CONTAINS $port
-          AND rule.Protocol = $protocol
-          AND rule.Direction = 'inbound'
+              (sg)-[:HAS_RULE]->(rule:SecurityRule)
+        WHERE rule.sourcecidr CONTAINS '0.0.0.0/0' 
+          AND rule.portrange CONTAINS $port
+          AND rule.protocol = $protocol
+          AND rule.direction = 'inbound'
         RETURN DISTINCT 
-            instance.Name AS InstanceName,
-            instance.InstanceID AS InstanceID,
-            instance.PublicIP AS PublicIP,
-            instance.State AS State,
-            collect(DISTINCT sg.GroupName) AS SecurityGroups,
-            collect(DISTINCT rule.RuleID) AS Rules
-        ORDER BY instance.Name
+            instance.name AS InstanceName,
+            instance.instanceid AS InstanceID,
+            instance.publicip AS PublicIP,
+            instance.state AS State,
+            collect(DISTINCT sg.name) AS SecurityGroups,
+            collect(DISTINCT rule.ruleid) AS Rules
+        ORDER BY instance.name
         """
         
         try:
@@ -64,19 +64,18 @@ class SecurityAnalyzer:
             過度寬鬆的規則清單
         """
         query = """
-        MATCH (sg:SecurityGroup)-[:HAS_RULE]->(rule:Rule)
-        WHERE rule.SourceCIDR CONTAINS '0.0.0.0/0'
-          AND rule.Direction = 'inbound'
-          AND rule.Action = 'allow'
+        MATCH (sg:SecurityGroup)-[:HAS_RULE]->(rule:SecurityRule)
+        WHERE rule.sourcecidr CONTAINS '0.0.0.0/0'
+          AND rule.direction = 'inbound'
         RETURN 
-            sg.GroupName AS SecurityGroupName,
-            sg.GroupID AS SecurityGroupID,
-            rule.RuleID AS RuleID,
-            rule.Protocol AS Protocol,
-            rule.PortRange AS PortRange,
-            rule.SourceCIDR AS SourceCIDR,
-            rule.Description AS Description
-        ORDER BY sg.GroupName, rule.PortRange
+            sg.name AS SecurityGroupName,
+            sg.groupid AS SecurityGroupID,
+            rule.ruleid AS RuleID,
+            rule.protocol AS Protocol,
+            rule.portrange AS PortRange,
+            rule.sourcecidr AS SourceCIDR,
+            rule.description AS Description
+        ORDER BY sg.name, rule.portrange
         """
         
         try:
@@ -97,13 +96,13 @@ class SecurityAnalyzer:
         # 查詢未加密的 EBS 磁碟
         ebs_query = """
         MATCH (volume:EBSVolume)
-        WHERE volume.Encrypted = false OR volume.Encrypted IS NULL
+        WHERE volume.encrypted = false OR volume.encrypted IS NULL
         RETURN 
             'EBSVolume' AS ResourceType,
-            volume.VolumeId AS ResourceID,
-            volume.Size AS Size,
-            volume.VolumeType AS Type,
-            volume.Region AS Region
+            volume.volumeid AS ResourceID,
+            volume.size AS Size,
+            volume.volumetype AS Type,
+            volume.region AS Region
         """
         
         # 查詢未加密的 S3 儲存桶（需要額外的 API 調用）
@@ -111,8 +110,8 @@ class SecurityAnalyzer:
         MATCH (bucket:S3Bucket)
         RETURN 
             'S3Bucket' AS ResourceType,
-            bucket.BucketName AS ResourceID,
-            bucket.Region AS Region
+            bucket.name AS ResourceID,
+            bucket.region AS Region
         """
         
         try:
@@ -141,11 +140,11 @@ class SecurityAnalyzer:
         MATCH (sg:SecurityGroup)
         WHERE NOT (sg)<-[:IS_MEMBER_OF]-(:EC2Instance)
         RETURN 
-            sg.GroupName AS SecurityGroupName,
-            sg.GroupID AS SecurityGroupID,
-            sg.Description AS Description,
-            sg.VpcId AS VpcId
-        ORDER BY sg.GroupName
+            sg.name AS SecurityGroupName,
+            sg.groupid AS SecurityGroupID,
+            sg.description AS Description,
+            sg.vpcid AS VpcId
+        ORDER BY sg.name
         """
         
         try:
@@ -168,19 +167,18 @@ class SecurityAnalyzer:
         
         query = """
         MATCH (instance:EC2Instance)-[:IS_MEMBER_OF]->(sg:SecurityGroup),
-              (sg)-[:HAS_RULE]->(rule:Rule)
-        WHERE rule.SourceCIDR CONTAINS '0.0.0.0/0'
-          AND rule.Direction = 'inbound'
-          AND rule.Action = 'allow'
-          AND any(port IN $high_risk_ports WHERE rule.PortRange CONTAINS port)
+              (sg)-[:HAS_RULE]->(rule:SecurityRule)
+        WHERE rule.sourcecidr CONTAINS '0.0.0.0/0'
+          AND rule.direction = 'inbound'
+          AND any(port IN $high_risk_ports WHERE rule.portrange CONTAINS port)
         RETURN DISTINCT 
-            instance.Name AS InstanceName,
-            instance.InstanceID AS InstanceID,
-            instance.PublicIP AS PublicIP,
-            collect(DISTINCT rule.PortRange) AS ExposedPorts,
-            collect(DISTINCT rule.Protocol) AS Protocols,
-            collect(DISTINCT sg.GroupName) AS SecurityGroups
-        ORDER BY instance.Name
+            instance.name AS InstanceName,
+            instance.instanceid AS InstanceID,
+            instance.publicip AS PublicIP,
+            collect(DISTINCT rule.portrange) AS ExposedPorts,
+            collect(DISTINCT rule.protocol) AS Protocols,
+            collect(DISTINCT sg.name) AS SecurityGroups
+        ORDER BY instance.name
         """
         
         try:

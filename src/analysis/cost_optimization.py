@@ -31,13 +31,12 @@ class CostOptimizationAnalyzer:
         MATCH (volume:EBSVolume)
         WHERE NOT (volume)-[:ATTACHES_TO]->(:EC2Instance)
         RETURN 
-            volume.VolumeId AS VolumeId,
-            volume.Size AS Size,
-            volume.VolumeType AS VolumeType,
-            volume.CreationDate AS CreationDate,
-            volume.State AS State,
-            volume.Region AS Region
-        ORDER BY volume.Size DESC
+            volume.volumeid AS VolumeId,
+            volume.size AS Size,
+            volume.volumetype AS VolumeType,
+            volume.state AS State,
+            volume.region AS Region
+        ORDER BY volume.size DESC
         """
         
         try:
@@ -59,12 +58,12 @@ class CostOptimizationAnalyzer:
         MATCH (sg:SecurityGroup)
         WHERE NOT (sg)<-[:IS_MEMBER_OF]-(:EC2Instance)
         RETURN 
-            sg.GroupName AS GroupName,
-            sg.GroupID AS GroupID,
-            sg.Description AS Description,
-            sg.VpcId AS VpcId,
-            size((sg)-[:HAS_RULE]->()) AS RuleCount
-        ORDER BY sg.GroupName
+            sg.name AS GroupName,
+            sg.groupid AS GroupID,
+            sg.description AS Description,
+            sg.vpcid AS VpcId,
+            COUNT { (sg)-[:HAS_RULE]->() } AS RuleCount
+        ORDER BY sg.name
         """
         
         try:
@@ -84,14 +83,14 @@ class CostOptimizationAnalyzer:
         """
         query = """
         MATCH (instance:EC2Instance)
-        WHERE instance.State = 'stopped'
+        WHERE instance.state = 'stopped'
         RETURN 
-            instance.Name AS InstanceName,
-            instance.InstanceID AS InstanceID,
-            instance.InstanceType AS InstanceType,
-            instance.LaunchTime AS LaunchTime,
-            instance.Region AS Region
-        ORDER BY instance.LaunchTime DESC
+            instance.name AS InstanceName,
+            instance.instanceid AS InstanceID,
+            instance.instancetype AS InstanceType,
+            instance.launchtime AS LaunchTime,
+            instance.region AS Region
+        ORDER BY instance.launchtime DESC
         """
         
         try:
@@ -114,14 +113,14 @@ class CostOptimizationAnalyzer:
         """
         query = """
         MATCH (instance:EC2Instance)
-        WHERE instance.State = 'running'
+        WHERE instance.state = 'running'
         RETURN 
-            instance.Name AS InstanceName,
-            instance.InstanceID AS InstanceID,
-            instance.InstanceType AS InstanceType,
-            instance.LaunchTime AS LaunchTime,
-            instance.Region AS Region
-        ORDER BY instance.LaunchTime
+            instance.name AS InstanceName,
+            instance.instanceid AS InstanceID,
+            instance.instancetype AS InstanceType,
+            instance.launchtime AS LaunchTime,
+            instance.region AS Region
+        ORDER BY instance.launchtime
         """
         
         try:
@@ -147,10 +146,10 @@ class CostOptimizationAnalyzer:
         ebs_query = """
         MATCH (volume:EBSVolume)
         RETURN 
-            volume.VolumeType AS VolumeType,
-            sum(volume.Size) AS TotalSize,
+            volume.volumetype AS VolumeType,
+            sum(volume.size) AS TotalSize,
             count(volume) AS VolumeCount,
-            avg(volume.Size) AS AvgSize
+            avg(volume.size) AS AvgSize
         ORDER BY TotalSize DESC
         """
         
@@ -158,7 +157,7 @@ class CostOptimizationAnalyzer:
         s3_query = """
         MATCH (bucket:S3Bucket)
         RETURN 
-            bucket.Region AS Region,
+            bucket.region AS Region,
             count(bucket) AS BucketCount
         ORDER BY BucketCount DESC
         """
@@ -191,30 +190,29 @@ class CostOptimizationAnalyzer:
         # 大型實例
         large_instances_query = """
         MATCH (instance:EC2Instance)
-        WHERE instance.State = 'running'
-          AND (instance.InstanceType CONTAINS 'large' 
-               OR instance.InstanceType CONTAINS 'xlarge'
-               OR instance.InstanceType CONTAINS '2xlarge'
-               OR instance.InstanceType CONTAINS '4xlarge')
+        WHERE instance.state = 'running'
+          AND (instance.instancetype CONTAINS 'large' 
+               OR instance.instancetype CONTAINS 'xlarge'
+               OR instance.instancetype CONTAINS '2xlarge'
+               OR instance.instancetype CONTAINS '4xlarge')
         RETURN 
-            instance.Name AS InstanceName,
-            instance.InstanceID AS InstanceID,
-            instance.InstanceType AS InstanceType,
-            instance.Region AS Region
-        ORDER BY instance.InstanceType
+            instance.name AS InstanceName,
+            instance.instanceid AS InstanceID,
+            instance.instancetype AS InstanceType,
+            instance.region AS Region
+        ORDER BY instance.instancetype
         """
         
         # 高 IOPS 磁碟
         high_iops_volumes_query = """
         MATCH (volume:EBSVolume)
-        WHERE volume.Iops > 1000
+        WHERE volume.size > 100
         RETURN 
-            volume.VolumeId AS VolumeId,
-            volume.VolumeType AS VolumeType,
-            volume.Size AS Size,
-            volume.Iops AS Iops,
-            volume.Region AS Region
-        ORDER BY volume.Iops DESC
+            volume.volumeid AS VolumeId,
+            volume.volumetype AS VolumeType,
+            volume.size AS Size,
+            volume.region AS Region
+        ORDER BY volume.size DESC
         """
         
         try:
@@ -246,7 +244,7 @@ class CostOptimizationAnalyzer:
             with self.driver.session() as session:
                 # 孤兒 EBS 磁碟
                 orphaned_volumes = self.find_orphaned_ebs_volumes()
-                orphaned_storage_gb = sum(vol['Size'] for vol in orphaned_volumes)
+                orphaned_storage_gb = sum(vol.get('Size', 0) or 0 for vol in orphaned_volumes)
                 
                 # 未使用安全群組
                 unused_sgs = self.find_unused_security_groups()
