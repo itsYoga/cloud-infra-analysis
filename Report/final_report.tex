@@ -204,10 +204,10 @@ RETURN instance.name, instance.instanceid, instance.publicip
 \begin{lstlisting}[language=Cypher,caption={關鍵節點識別}]
 // 找出連接數最多的節點（關鍵節點）
 MATCH (n)
-WITH n, size((n)--()) as connection_count
+WITH n, COUNT { (n)--() } as connection_count
 WHERE connection_count > 2
 RETURN labels(n)[0] as node_type, n.instanceid, 
-       n.groupname, n.vpcid, connection_count
+       n.name, n.vpcid, connection_count
 ORDER BY connection_count DESC
 \end{lstlisting}
 
@@ -242,9 +242,9 @@ python main.py --mode dashboard --host 0.0.0.0 --port 8050
 \subsection{分析結果範例}
 系統成功檢測出以下問題：
 \begin{itemize}[leftmargin=1.5em]
-    \item \textbf{安全分析}：12 個過度寬鬆的安全群組規則，6 個未加密資源，16 個孤兒安全群組
-    \item \textbf{故障分析}：28 個關鍵節點，66 個單點故障，網路冗餘性分析
-    \item \textbf{成本優化}：22 個孤兒 EBS 磁碟（總大小 10,268 GB，預估月成本 \$1,026.8），16 個未使用安全群組
+    \item \textbf{安全分析}：12 個過度寬鬆的安全群組規則，6 個未加密資源，16 個孤兒安全群組，0 個暴露服務（已修正）
+    \item \textbf{故障分析}：28 個關鍵節點，66 個單點故障，網路冗餘性分析，171 個節點，111 個關係
+    \item \textbf{成本優化}：22 個孤兒 EBS 磁碟（總大小 10,268 GB，預估月成本 \$1,026.8），16 個未使用安全群組，5 個停止實例
 \end{itemize}
 
 \section{實作要點}

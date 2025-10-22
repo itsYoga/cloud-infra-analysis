@@ -99,7 +99,19 @@ docker run \
 python main.py --mode <模式> [選項]
 ```
 
-#### 2. 可用模式
+#### 2. 推薦使用方式
+```bash
+# 綜合分析（推薦）
+python main.py --mode comprehensive-analyze --mock
+
+# 進階安全分析
+python main.py --mode advanced-analyze --analysis-type security --mock
+
+# 成本優化分析
+python main.py --mode advanced-analyze --analysis-type cost --mock
+```
+
+#### 3. 可用模式
 
 ##### 完整流程模式
 ```bash
@@ -169,7 +181,7 @@ python main.py --mode dashboard --host 0.0.0.0 --port 8050
 ```cypher
 // 找出所有 EC2 實例及其安全群組
 MATCH (instance:EC2Instance)-[:IS_MEMBER_OF]->(sg:SecurityGroup)
-RETURN instance.Name, instance.PublicIP, sg.GroupName
+RETURN instance.name, instance.publicip, sg.name
 LIMIT 10
 ```
 
@@ -177,7 +189,7 @@ LIMIT 10
 ```cypher
 // 找出所有安全群組
 MATCH (sg:SecurityGroup)
-RETURN sg.GroupName, sg.GroupID, sg.Description
+RETURN sg.name, sg.groupid, sg.description
 LIMIT 10
 ```
 
@@ -187,9 +199,9 @@ LIMIT 10
 ```cypher
 // 找出連接數最多的節點（關鍵節點）
 MATCH (n)
-WITH n, size((n)--()) as connection_count
+WITH n, COUNT { (n)--() } as connection_count
 WHERE connection_count > 2
-RETURN labels(n)[0] as node_type, n.Name, connection_count
+RETURN labels(n)[0] as node_type, n.name, connection_count
 ORDER BY connection_count DESC
 LIMIT 10
 ```
@@ -222,7 +234,7 @@ LIMIT 10
 // 找出沒有關聯任何實例的安全群組
 MATCH (sg:SecurityGroup)
 WHERE NOT (sg)<-[:IS_MEMBER_OF]-(:EC2Instance)
-RETURN sg.groupname, sg.groupid, sg.description
+RETURN sg.name, sg.groupid, sg.description
 LIMIT 10
 ```
 
