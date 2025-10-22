@@ -84,13 +84,13 @@ RETURN sg.name, sg.groupid
 ### 2. 圖形資料模型
 
 #### 節點類型 (Node Types)
-- **EC2Instance**: 虛擬機器實例
+- **EC2Instance**: 虛擬伺服器
 - **SecurityGroup**: 安全群組（防火牆規則）
-- **VPC**: 虛擬私有雲
+- **VPC**: 虛擬私雲
 - **Subnet**: 子網路
-- **EBSVolume**: 彈性區塊儲存
-- **S3Bucket**: 簡單儲存服務
-- **LambdaFunction**: 無伺服器函數
+- **EBSVolume**: 彈性儲存區塊
+- **S3Bucket**: Simple  Storage Service
+- **LambdaFunction**: 無伺服器運算服務
 - **RDSInstance**: 關聯式資料庫
 - **ELB**: 彈性負載平衡器
 
