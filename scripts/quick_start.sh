@@ -10,6 +10,33 @@ if [ ! -f "main.py" ]; then
     exit 1
 fi
 
+# 檢查是否有分析結果文件
+if [ -d "output" ] && [ "$(ls -A output/*.json 2>/dev/null)" ]; then
+    echo "發現現有的分析結果文件"
+    echo "請選擇操作:"
+    echo "1) 重新執行完整分析流程"
+    echo "2) 直接啟動儀表板 (使用現有分析結果)"
+    echo "3) 退出"
+    echo ""
+    read -p "請輸入選項 (1-3): " choice
+    
+    case $choice in
+        2)
+            echo "啟動儀表板..."
+            source venv/bin/activate
+            python main.py --mode dashboard --host 0.0.0.0 --port 8050
+            exit 0
+            ;;
+        3)
+            echo "退出"
+            exit 0
+            ;;
+        1|*)
+            echo "繼續執行完整分析流程..."
+            ;;
+    esac
+fi
+
 # 啟動虛擬環境
 echo "啟動 Python 虛擬環境..."
 source venv/bin/activate
@@ -83,13 +110,21 @@ if [ $? -eq 0 ]; then
         echo "- 資料庫: Neo4j Aura Console (https://console.neo4j.io)"
         echo ""
         echo "啟動視覺化儀表板:"
-        echo "python main.py --mode dashboard"
-        echo "然後開啟瀏覽器: http://127.0.0.1:8050"
+        echo "python main.py --mode dashboard --host 0.0.0.0 --port 8050"
+        echo "然後開啟瀏覽器: http://localhost:8050"
+        echo ""
+        echo "是否現在啟動儀表板? (y/n)"
+        read -r response
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            echo "正在啟動儀表板..."
+            python main.py --mode dashboard --host 0.0.0.0 --port 8050
+        fi
         echo ""
         echo "其他命令:"
         echo "- 重新分析: python main.py --mode comprehensive-analyze --mock"
         echo "- 只載入資料: python main.py --mode load --data-path data/raw/enhanced_mock_aws_resources.json"
         echo "- 只執行分析: python main.py --mode analyze"
+        echo "- 啟動儀表板: python main.py --mode dashboard --host 0.0.0.0 --port 8050"
     else
         echo "分析執行失敗，請檢查錯誤訊息"
     fi

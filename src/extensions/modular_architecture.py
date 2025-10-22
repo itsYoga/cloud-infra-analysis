@@ -484,8 +484,32 @@ class DashboardVisualizer(Visualizer):
         pass
     
     def create_visualization(self, data: Dict[str, Any]) -> Any:
-        # 實作儀表板創建邏輯
-        return None
+        """創建儀表板視覺化"""
+        try:
+            # 導入 SimpleDashboard
+            from src.visualization.simple_dashboard import SimpleDashboard
+            
+            # 尋找最新的分析文件
+            output_dir = "output"
+            if os.path.exists(output_dir):
+                files = [f for f in os.listdir(output_dir) if f.startswith('comprehensive_analysis_') and f.endswith('.json')]
+                if files:
+                    latest_file = max(files, key=lambda x: os.path.getctime(os.path.join(output_dir, x)))
+                    analysis_file = os.path.join(output_dir, latest_file)
+                    
+                    # 創建儀表板實例
+                    dashboard = SimpleDashboard(analysis_file)
+                    return dashboard
+                else:
+                    self.logger.warning("未找到分析結果文件")
+                    return None
+            else:
+                self.logger.warning("輸出目錄不存在")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"創建儀表板視覺化失敗: {e}")
+            return None
     
     def get_visualization_types(self) -> List[str]:
         return ["network_topology", "security_dashboard", "cost_analysis"]
@@ -493,3 +517,7 @@ class DashboardVisualizer(Visualizer):
 
 # 全域擴展管理器實例
 extension_manager = ExtensionManager()
+
+# 註冊視覺化模組
+dashboard_viz = DashboardVisualizer()
+extension_manager.registry.register_module(DashboardVisualizer, dashboard_viz.get_info())

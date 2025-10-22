@@ -432,10 +432,15 @@ class ImprovedCloudInfrastructureAnalyzer:
             
             logger.info(f"啟動儀表板: http://{host}:{port}")
             
-            # 這裡應該啟動實際的儀表板
-            # 由於這是範例，我們只是記錄日誌
-            logger.info("儀表板已啟動（範例模式）")
+            # 創建視覺化
+            dashboard = visualizer.create_visualization({})
+            if not dashboard:
+                logger.error("儀表板創建失敗")
+                return False
             
+            # 啟動儀表板
+            logger.info("正在啟動儀表板服務器...")
+            dashboard.run(host=host, port=port, debug=False)
             return True
             
         except Exception as e:

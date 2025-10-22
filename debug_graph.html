@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>圖形調試頁面</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/vis-network.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/vis-network.min.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+    <h1>圖形調試頁面</h1>
+    <div id="graphContainer" style="width: 800px; height: 600px; border: 1px solid #ccc;"></div>
+    <div id="debugInfo"></div>
+
+    <script>
+        async function loadData() {
+            try {
+                const response = await fetch('http://localhost:8050/api/data');
+                const data = await response.json();
+                
+                console.log('API Data:', data);
+                document.getElementById('debugInfo').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                
+                // 生成圖形數據
+                const graphData = generateGraphData(data);
+                console.log('Graph Data:', graphData);
+                
+                // 渲染圖形
+                renderGraph(graphData);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('debugInfo').innerHTML = 'Error: ' + error.message;
+            }
+        }
+        
+        function generateGraphData(data) {
+            const nodes = [];
+            const edges = [];
+            
+            // 從分析結果中獲取節點信息
+            const nodeStats = data.results?.security?.summary?.node_statistics || {};
+            const criticalNodes = data.results?.failure_impact?.critical_nodes || [];
+            const spofNodes = data.results?.failure_impact?.single_points_of_failure || [];
+            const permissiveRules = data.results?.security?.permissive_rules || [];
+            const orphanedVolumes = data.results?.cost_optimization?.orphaned_volumes || [];
+            
+            console.log('Node stats:', nodeStats);
+            console.log('Critical nodes:', criticalNodes.length);
+            console.log('SPOF nodes:', spofNodes.length);
+            
+            // 創建 VPC 節點
+            nodes.push({
+                id: 'vpc-main',
+                label: 'Main VPC',
+                group: 'VPC',
+                title: '主要 VPC<br>CIDR: 10.0.0.0/16<br>Region: us-east-1'
+            });
+            
+            // 創建子網路節點
+            for (let i = 1; i <= 3; i++) {
+                nodes.push({
+                    id: `subnet-${i}`,
+                    label: `Subnet-${i}`,
+                    group: 'Subnet',
+                    title: `子網路 ${i}<br>AZ: us-east-1${String.fromCharCode(96+i)}<br>CIDR: 10.0.${i}.0/24`
+                });
+                edges.push({ from: 'vpc-main', to: `subnet-${i}` });
+            }
+            
+            // 創建 EC2 實例節點
+            const ec2Count = nodeStats.EC2Instance || 0;
+            for (let i = 1; i <= Math.min(ec2Count, 8); i++) {
+                // 檢查是否為關鍵節點或單點故障
+                const isCritical = criticalNodes.some(n => {
+                    const nodeData = n.node || n;
+                    return nodeData.instanceid || nodeData.name || nodeData.groupid;
+                });
+                const isSpof = spofNodes.some(n => {
+                    const nodeData = n.node || n;
+                    return nodeData.instanceid || nodeData.name || nodeData.groupid;
+                });
+                
+                nodes.push({
+                    id: `ec2-${i}`,
+                    label: `EC2-${i}`,
+                    group: 'EC2Instance',
+                    title: `EC2 實例 ${i}<br>Type: t3.micro<br>State: running`,
+                    is_critical: isCritical,
+                    is_spof: isSpof,
+                    security_risk: 'none',
+                    cost_waste: 0
+                });
+                
+                // 連接到子網路
+                edges.push({ from: `subnet-${((i-1) % 3) + 1}`, to: `ec2-${i}` });
+            }
+            
+            // 創建安全群組節點
+            const sgCount = nodeStats.SecurityGroup || 0;
+            for (let i = 1; i <= Math.min(sgCount, 5); i++) {
+                const hasRisk = permissiveRules.length > 0; // 如果有過度寬鬆規則，標記為高風險
+                
+                nodes.push({
+                    id: `sg-${i}`,
+                    label: `SG-${i}`,
+                    group: 'SecurityGroup',
+                    title: `安全群組 ${i}<br>Description: Web servers`,
+                    security_risk: hasRisk ? 'high' : 'none'
+                });
+                
+                // 連接到 EC2 實例
+                if (i <= 3) {
+                    edges.push({ from: `ec2-${i}`, to: `sg-${i}` });
+                }
+            }
+            
+            // 創建 EBS 磁碟節點
+            const volumeCount = nodeStats.EBSVolume || 0;
+            for (let i = 1; i <= Math.min(volumeCount, 6); i++) {
+                const isOrphaned = orphanedVolumes.length > 0; // 如果有孤兒磁碟，標記為成本浪費
+                
+                nodes.push({
+                    id: `vol-${i}`,
+                    label: `Vol-${i}`,
+                    group: 'EBSVolume',
+                    title: `EBS 磁碟 ${i}<br>Size: 100GB<br>Type: gp3`,
+                    cost_waste: isOrphaned ? 10.0 : 0
+                });
+                
+                // 連接到 EC2 實例
+                if (i <= 3) {
+                    edges.push({ from: `vol-${i}`, to: `ec2-${i}` });
+                }
+            }
+            
+            console.log('Generated nodes:', nodes.length);
+            console.log('Generated edges:', edges.length);
+            
+            return { nodes, edges };
+        }
+        
+        function renderGraph(graphData) {
+            const container = document.getElementById('graphContainer');
+            
+            const data = {
+                nodes: new vis.DataSet(graphData.nodes),
+                edges: new vis.DataSet(graphData.edges)
+            };
+            
+            const options = {
+                autoResize: true,
+                nodes: {
+                    font: {
+                        family: 'Arial',
+                        size: 14,
+                        color: '#333'
+                    },
+                    borderWidth: 2,
+                    shadow: true
+                },
+                edges: {
+                    width: 2,
+                    arrows: {
+                        to: { enabled: true, scaleFactor: 0.5 }
+                    },
+                    color: {
+                        color: '#aaa',
+                        highlight: '#3498db',
+                        hover: '#3498db'
+                    },
+                    smooth: {
+                        type: 'cubicBezier',
+                        forceDirection: 'vertical',
+                        roundness: 0.4
+                    }
+                },
+                physics: {
+                    enabled: true,
+                    solver: 'forceAtlas2Based',
+                    forceAtlas2Based: {
+                        gravitationalConstant: -50,
+                        centralGravity: 0.01,
+                        springLength: 100,
+                        springConstant: 0.08,
+                        avoidOverlap: 0.5
+                    },
+                    stabilization: {
+                        iterations: 200,
+                        fit: true
+                    }
+                },
+                interaction: {
+                    dragNodes: true,
+                    dragView: true,
+                    hover: true,
+                    zoomView: true,
+                    tooltipDelay: 300
+                },
+                groups: {
+                    VPC: {
+                        shape: 'icon',
+                        icon: { face: 'FontAwesome', code: '\\uf0c2', size: 50, color: '#3498db' }
+                    },
+                    Subnet: {
+                        shape: 'icon',
+                        icon: { face: 'FontAwesome', code: '\\uf1e0', size: 40, color: '#2ecc71' }
+                    },
+                    EC2Instance: {
+                        shape: 'icon',
+                        icon: { face: 'FontAwesome', code: '\\uf233', size: 50, color: '#333' }
+                    },
+                    SecurityGroup: {
+                        shape: 'icon',
+                        icon: { face: 'FontAwesome', code: '\\uf3ed', size: 40, color: '#e74c3c' }
+                    },
+                    EBSVolume: {
+                        shape: 'icon',
+                        icon: { face: 'FontAwesome', code: '\\uf0a0', size: 30, color: '#f39c12' }
+                    }
+                }
+            };
+            
+            const network = new vis.Network(container, data, options);
+        }
+        
+        // 頁面載入時自動載入數據
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>
