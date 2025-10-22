@@ -1,34 +1,62 @@
 #!/bin/bash
 # 一鍵快速開始腳本
 
-echo "🚀 雲端基礎設施分析平台 - 快速開始"
+echo "雲端基礎設施分析平台"
 echo "=================================="
 
 # 檢查當前目錄
 if [ ! -f "main.py" ]; then
-    echo "❌ 請在專案根目錄執行此腳本"
+    echo "請在專案根目錄執行此腳本"
     exit 1
 fi
 
 # 啟動虛擬環境
-echo "📦 啟動 Python 虛擬環境..."
+echo "啟動 Python 虛擬環境..."
 source venv/bin/activate
 
 # 檢查 Neo4j 連接
-echo "🔍 檢查 Neo4j 連接..."
+echo "檢查 Neo4j 連接..."
 python -c "
+import os
 from neo4j import GraphDatabase
+
+# 檢查是否使用 Aura
+if os.path.exists('.env'):
+    with open('.env', 'r') as f:
+        env_content = f.read()
+        if 'neo4j+s://' in env_content or 'neo4j+ssc://' in env_content:
+            print('檢測到 Neo4j Aura 配置')
+            print('')
+            print('Neo4j Aura 設定說明:')
+            print('1. 登入 Neo4j Aura Console: https://console.neo4j.io')
+            print('2. 選擇您的實例')
+            print('3. 複製連接 URI 和密碼')
+            print('4. 更新 .env 檔案中的 NEO4J_URI 和 NEO4J_PASSWORD')
+            print('5. 重新執行此腳本')
+            exit(0)
+
+# 檢查本地 Neo4j
 try:
     driver = GraphDatabase.driver('bolt://localhost:7687', auth=('neo4j', 'neo4j'))
     with driver.session() as session:
         result = session.run('RETURN 1 as test')
-        print('✅ Neo4j 連接成功，使用預設密碼')
+        print('Neo4j 本地連接成功')
     driver.close()
     exit(0)
 except Exception as e:
-    print('⚠️  Neo4j 需要設定密碼')
+    print('Neo4j 連接失敗')
     print('')
-    print('請按照以下步驟設定:')
+    print('請選擇連接方式:')
+    print('')
+    print('使用 Neo4j Aura (推薦):')
+    print('1. 登入 Neo4j Aura Console: https://console.neo4j.io')
+    print('2. 創建或選擇您的實例')
+    print('3. 複製連接 URI 和密碼')
+    print('4. 更新 .env 檔案:')
+    print('   NEO4J_URI=neo4j+s://your-instance.databases.neo4j.io')
+    print('   NEO4J_PASSWORD=your-password')
+    print('')
+    print('使用本地 Neo4j:')
     print('1. 開啟瀏覽器: http://localhost:7474')
     print('2. 登入: 使用者名稱 neo4j, 密碼 neo4j')
     print('3. 設定新密碼')
@@ -39,33 +67,37 @@ except Exception as e:
 
 if [ $? -eq 0 ]; then
     echo ""
-    echo "🎯 開始執行完整分析流程..."
+    echo "開始執行完整分析流程..."
     echo "================================"
     
     # 執行完整分析
-    python main.py --mode full --mock
+    python main.py --mode comprehensive-analyze --mock
     
     if [ $? -eq 0 ]; then
         echo ""
-        echo "🎉 分析完成！"
+        echo "分析完成"
         echo "============="
         echo ""
-        echo "📊 查看結果:"
+        echo "查看結果:"
         echo "- 分析報告: output/ 目錄"
-        echo "- 資料庫: Neo4j Browser (http://localhost:7474)"
+        echo "- 資料庫: Neo4j Aura Console (https://console.neo4j.io)"
         echo ""
-        echo "🚀 啟動視覺化儀表板:"
+        echo "啟動視覺化儀表板:"
         echo "python main.py --mode dashboard"
         echo "然後開啟瀏覽器: http://127.0.0.1:8050"
         echo ""
-        echo "💡 其他命令:"
-        echo "- 重新分析: python main.py --mode full --mock"
-        echo "- 只載入資料: python main.py --mode load --data-path data/raw/mock_aws_resources.json"
+        echo "其他命令:"
+        echo "- 重新分析: python main.py --mode comprehensive-analyze --mock"
+        echo "- 只載入資料: python main.py --mode load --data-path data/raw/enhanced_mock_aws_resources.json"
         echo "- 只執行分析: python main.py --mode analyze"
     else
-        echo "❌ 分析執行失敗，請檢查錯誤訊息"
+        echo "分析執行失敗，請檢查錯誤訊息"
     fi
 else
     echo ""
-    echo "🔧 請先設定 Neo4j 密碼，然後重新執行此腳本"
+    echo "請先設定 Neo4j 連接，然後重新執行此腳本"
+    echo ""
+    echo "提示:"
+    echo "- 使用 Neo4j Aura: 更新 .env 檔案中的 NEO4J_URI 和 NEO4J_PASSWORD"
+    echo "- 使用本地 Neo4j: 更新 .env 檔案中的 NEO4J_PASSWORD"
 fi
