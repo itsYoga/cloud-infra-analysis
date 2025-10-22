@@ -95,8 +95,8 @@ RETURN sg.name, sg.groupid
 - **ELB**: 彈性負載平衡器
 
 #### 關係類型 (Relationship Types)
-- **IS_MEMBER_OF**: EC2 實例屬於安全群組
-- **LOCATED_IN**: 資源位於子網路中（統一關係類型）
+- **IS_MEMBER_OF**: EC2 虛擬伺服器屬於的安全群組
+- **LOCATED_IN**: 資源位於子網路中
 - **ATTACHES_TO**: EBS 磁碟附加到 EC2
 - **HAS_RULE**: 安全群組包含規則
 
