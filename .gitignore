@@ -44,29 +44,10 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Project specific
-data/raw/*.json
-output/*.json
-logs/
+# Logs
 *.log
-
-# Database files
-*.db
-*.sqlite
-*.sqlite3
-
-# Process files
-*.pid
-*.sock
-*.lock
-
-# Backup files
-*.bak
-*.backup
-*~
-
-# Neo4j
-neo4j/
+logs/
+log/
 
 # Environment variables
 .env
@@ -75,41 +56,35 @@ neo4j/
 .env.test.local
 .env.production.local
 
-# AWS credentials (SECURITY: Never commit these!)
-.aws/
-~/.aws/
-aws-credentials.json
-*.pem
-*.key
-*.crt
-*.cer
-*.p12
-*.pfx
-*.jks
-*.keystore
+# Neo4j
+neo4j/
+data/
+logs/
+import/
 
-# Other cloud credentials
-.gcp/
-.azure/
-.terraform/
-terraform.tfstate*
-*.tfvars
+# Output files
+output/
+*.json
+!data/raw/*.json
 
-# Temporary files
-*.tmp
-*.temp
-temp/
-tmp/
+# LaTeX auxiliary files
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+*.bbl
+*.blg
 
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# pytest
-.pytest_cache/
-.coverage
-htmlcov/
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
+# Keep important files
+!Report/final_report.pdf
+!Report/final_report.tex
+!screenshots/
+!README.md
+!requirements.txt
+!main.py
+!src/
+!scripts/
+!data/raw/

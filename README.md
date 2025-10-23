@@ -25,6 +25,122 @@
 - **LaTeX 版本**: `Report/final_report.tex`
 - **PDF 版本**: `Report/final_report.pdf`
 
+### 系統截圖展示
+
+#### 主儀表板
+![系統主頁面](screenshots/Mainpage_Screenshot.png)
+*系統主頁面 - 顯示整體分析概覽*
+
+#### 三大核心分析功能
+<table>
+<tr>
+<td><img src="screenshots/安全分析.png" width="300" alt="安全性分析結果"></td>
+<td><img src="screenshots/故障衝擊分析.png" width="300" alt="故障衝擊分析"></td>
+<td><img src="screenshots/成本優化分析.png" width="300" alt="成本優化分析"></td>
+</tr>
+<tr>
+<td align="center">安全性分析結果</td>
+<td align="center">故障衝擊分析</td>
+<td align="center">成本優化分析</td>
+</tr>
+</table>
+
+#### Neo4j Aura 雲端資料庫
+![Neo4j Aura](screenshots/neo4j_aura.png)
+*Neo4j Aura 雲端資料庫 - 圖形資料儲存和查詢*
+
+#### 節點類型查詢結果
+<table>
+<tr>
+<td><img src="screenshots/EC2Instances.png" width="250" alt="EC2 實例節點"></td>
+<td><img src="screenshots/SecurityGroup.png" width="250" alt="安全群組節點"></td>
+<td><img src="screenshots/VPC.png" width="250" alt="VPC 節點"></td>
+</tr>
+<tr>
+<td align="center">EC2 實例節點</td>
+<td align="center">安全群組節點</td>
+<td align="center">VPC 節點</td>
+</tr>
+<tr>
+<td><img src="screenshots/Subnet.png" width="250" alt="子網路節點"></td>
+<td><img src="screenshots/EBSVolumes.png" width="250" alt="EBS 磁碟節點"></td>
+<td><img src="screenshots/SecurityRule.png" width="250" alt="安全規則節點"></td>
+</tr>
+<tr>
+<td align="center">子網路節點</td>
+<td align="center">EBS 磁碟節點</td>
+<td align="center">安全規則節點</td>
+</tr>
+</table>
+
+#### 關係類型查詢結果
+<table>
+<tr>
+<td><img src="screenshots/IS_MEMBER_OF.png" width="300" alt="IS_MEMBER_OF 關係"></td>
+<td><img src="screenshots/HAS_RULE.png" width="300" alt="HAS_RULE 關係"></td>
+</tr>
+<tr>
+<td align="center">IS_MEMBER_OF 關係</td>
+<td align="center">HAS_RULE 關係</td>
+</tr>
+<tr>
+<td><img src="screenshots/LOCATED_IN.png" width="300" alt="LOCATED_IN 關係"></td>
+<td><img src="screenshots/ATTACHES_TO.png" width="300" alt="ATTACHES_TO 關係"></td>
+</tr>
+<tr>
+<td align="center">LOCATED_IN 關係</td>
+<td align="center">ATTACHES_TO 關係</td>
+</tr>
+</table>
+
+#### 安全性分析查詢結果
+<table>
+<tr>
+<td><img src="screenshots/UnencryptedEBSVolumes.png" width="300" alt="未加密 EBS 磁碟檢測"></td>
+<td><img src="screenshots/Overly Permissive SG.png" width="300" alt="過度寬鬆的安全群組檢測"></td>
+</tr>
+<tr>
+<td align="center">未加密 EBS 磁碟檢測</td>
+<td align="center">過度寬鬆的安全群組檢測</td>
+</tr>
+</table>
+
+#### 成本優化分析查詢結果
+<table>
+<tr>
+<td><img src="screenshots/Orphaned EBS Volumes.png" width="300" alt="孤兒 EBS 磁碟檢測"></td>
+<td><img src="screenshots/Unused Security Groups.png" width="300" alt="未使用的安全群組檢測"></td>
+</tr>
+<tr>
+<td align="center">孤兒 EBS 磁碟檢測</td>
+<td align="center">未使用的安全群組檢測</td>
+</tr>
+<tr>
+<td colspan="2" align="center"><img src="screenshots/Stopped EC2 Instances.png" width="500" alt="已停止的 EC2 實例檢測"></td>
+</tr>
+<tr>
+<td colspan="2" align="center">已停止的 EC2 實例檢測</td>
+</tr>
+</table>
+
+#### 故障衝擊分析查詢結果
+<table>
+<tr>
+<td><img src="screenshots/Critical Nodes.png" width="300" alt="關鍵節點識別"></td>
+<td><img src="screenshots/Single Point of Failure.png" width="300" alt="單點故障檢測"></td>
+</tr>
+<tr>
+<td align="center">關鍵節點識別</td>
+<td align="center">單點故障檢測</td>
+</tr>
+<tr>
+<td colspan="2" align="center"><img src="screenshots/Network Redundancy Analysis.png" width="500" alt="網路冗餘性分析"></td>
+</tr>
+<tr>
+<td colspan="2" align="center">網路冗餘性分析</td>
+</tr>
+</table>
+
 ### 核心查詢範例
 
 #### 安全分析
