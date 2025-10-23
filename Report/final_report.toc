@@ -1,6 +1,6 @@
 \contentsline {section}{\numberline {1}專案概述}{3}{section.1}%
-\contentsline {subsection}{\numberline {1.1}核心價值}{3}{subsection.1.1}%
-\contentsline {subsection}{\numberline {1.2}三大核心功能}{3}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.1}專案目標}{3}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}核心功能}{3}{subsection.1.2}%
 \contentsline {section}{\numberline {2}Neo4j 產品與服務}{3}{section.2}%
 \contentsline {subsection}{\numberline {2.1}使用的 Neo4j 產品}{3}{subsection.2.1}%
 \contentsline {subsection}{\numberline {2.2}技術架構}{4}{subsection.2.2}%
@@ -10,16 +10,33 @@
 \contentsline {section}{\numberline {4}圖形資料模型設計}{5}{section.4}%
 \contentsline {subsection}{\numberline {4.1}核心節點（Nodes）}{5}{subsection.4.1}%
 \contentsline {subsection}{\numberline {4.2}核心關係（Relationships）}{5}{subsection.4.2}%
-\contentsline {section}{\numberline {5}核心分析功能與範例查詢}{5}{section.5}%
-\contentsline {subsection}{\numberline {5.1}資安漏洞分析（Security Vulnerability Analysis）}{5}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}故障衝擊分析（Failure Impact Analysis）}{5}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}成本優化分析（Cost Optimization Analysis）}{6}{subsection.5.3}%
-\contentsline {section}{\numberline {6}實作要點}{6}{section.6}%
-\contentsline {subsection}{\numberline {6.1}擷取與載入}{6}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}查詢效能}{6}{subsection.6.2}%
-\contentsline {section}{\numberline {7}Neo4j 圖形資料庫的優勢}{6}{section.7}%
-\contentsline {section}{\numberline {8}結論}{7}{section.8}%
-\contentsline {subsection}{\numberline {8.1}專案成果}{7}{subsection.8.1}%
-\contentsline {subsection}{\numberline {8.2}技術價值}{7}{subsection.8.2}%
-\contentsline {subsection}{\numberline {8.3}未來發展}{7}{subsection.8.3}%
-\contentsline {section}{\numberline {9}參考資料}{7}{section.9}%
+\contentsline {subsection}{\numberline {4.3}節點類型詳細說明}{5}{subsection.4.3}%
+\contentsline {subsubsection}{\numberline {4.3.1}EC2Instance 節點}{5}{subsubsection.4.3.1}%
+\contentsline {subsubsection}{\numberline {4.3.2}SecurityGroup 節點}{6}{subsubsection.4.3.2}%
+\contentsline {subsubsection}{\numberline {4.3.3}SecurityRule 節點}{6}{subsubsection.4.3.3}%
+\contentsline {subsubsection}{\numberline {4.3.4}VPC 節點}{6}{subsubsection.4.3.4}%
+\contentsline {subsubsection}{\numberline {4.3.5}Subnet 節點}{6}{subsubsection.4.3.5}%
+\contentsline {subsubsection}{\numberline {4.3.6}EBSVolume 節點}{7}{subsubsection.4.3.6}%
+\contentsline {subsubsection}{\numberline {4.3.7}S3Bucket 節點}{7}{subsubsection.4.3.7}%
+\contentsline {subsection}{\numberline {4.4}關係類型詳細說明}{7}{subsection.4.4}%
+\contentsline {subsubsection}{\numberline {4.4.1}IS\_MEMBER\_OF 關係}{7}{subsubsection.4.4.1}%
+\contentsline {subsubsection}{\numberline {4.4.2}HAS\_RULE 關係}{8}{subsubsection.4.4.2}%
+\contentsline {subsubsection}{\numberline {4.4.3}LOCATED\_IN 關係}{8}{subsubsection.4.4.3}%
+\contentsline {subsubsection}{\numberline {4.4.4}ATTACHES\_TO 關係}{8}{subsubsection.4.4.4}%
+\contentsline {section}{\numberline {5}核心分析功能與範例查詢}{8}{section.5}%
+\contentsline {subsection}{\numberline {5.1}資安漏洞分析（Security Vulnerability Analysis）}{8}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}故障衝擊分析（Failure Impact Analysis）}{9}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}成本優化分析（Cost Optimization Analysis）}{9}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}詳細查詢語句解析}{9}{subsection.5.4}%
+\contentsline {subsubsection}{\numberline {5.4.1}安全性分析查詢}{9}{subsubsection.5.4.1}%
+\contentsline {subsubsection}{\numberline {5.4.2}成本優化分析查詢}{10}{subsubsection.5.4.2}%
+\contentsline {subsubsection}{\numberline {5.4.3}故障衝擊分析查詢}{11}{subsubsection.5.4.3}%
+\contentsline {section}{\numberline {6}實作要點}{13}{section.6}%
+\contentsline {subsection}{\numberline {6.1}擷取與載入}{13}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}查詢效能}{13}{subsection.6.2}%
+\contentsline {section}{\numberline {7}Neo4j 圖形資料庫的優勢}{13}{section.7}%
+\contentsline {section}{\numberline {8}結論}{14}{section.8}%
+\contentsline {subsection}{\numberline {8.1}專案成果}{14}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}技術價值}{14}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}未來發展}{14}{subsection.8.3}%
+\contentsline {section}{\numberline {9}參考資料}{14}{section.9}%

@@ -53,6 +53,14 @@ class SimpleDashboard:
         """創建 Flask 應用程式"""
         self.app = Flask(__name__)
         
+        # 添加 CORS 支持
+        @self.app.after_request
+        def after_request(response):
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+            response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+            return response
+        
         # 設定路由
         self.app.route('/')(self.index)
         self.app.route('/api/data')(self.api_data)
@@ -1024,6 +1032,7 @@ class SimpleDashboard:
         
         // 生成圖形數據
         function generateGraphData(data) {
+            console.log('開始生成圖形數據...');
             const nodes = [];
             const edges = [];
             
@@ -1034,9 +1043,27 @@ class SimpleDashboard:
             const permissiveRules = data.results?.security?.permissive_rules || [];
             const orphanedVolumes = data.results?.cost_optimization?.orphaned_volumes || [];
             
-            console.log('Node stats:', nodeStats);
-            console.log('Critical nodes:', criticalNodes.length);
-            console.log('SPOF nodes:', spofNodes.length);
+            console.log('節點統計:', nodeStats);
+            console.log('關鍵節點數量:', criticalNodes.length);
+            console.log('單點故障數量:', spofNodes.length);
+            
+            // 預先建立查找表以提高性能
+            const criticalNodeIds = new Set();
+            const spofNodeIds = new Set();
+            
+            criticalNodes.forEach(n => {
+                const nodeData = n.node || n;
+                if (nodeData.instanceid) criticalNodeIds.add(nodeData.instanceid);
+                if (nodeData.name) criticalNodeIds.add(nodeData.name);
+                if (nodeData.groupid) criticalNodeIds.add(nodeData.groupid);
+            });
+            
+            spofNodes.forEach(n => {
+                const nodeData = n.node || n;
+                if (nodeData.instanceid) spofNodeIds.add(nodeData.instanceid);
+                if (nodeData.name) spofNodeIds.add(nodeData.name);
+                if (nodeData.groupid) spofNodeIds.add(nodeData.groupid);
+            });
             
             // 創建 VPC 節點
             nodes.push({
@@ -1057,21 +1084,15 @@ class SimpleDashboard:
                 edges.push({ from: 'vpc-main', to: `subnet-${i}` });
             }
             
-            // 創建 EC2 實例節點
-            const ec2Count = nodeStats.EC2Instance || 0;
-            for (let i = 1; i <= Math.min(ec2Count, 8); i++) {
-                // 檢查是否為關鍵節點或單點故障
-                const isCritical = criticalNodes.some(n => {
-                    const nodeData = n.node || n;
-                    return nodeData.instanceid || nodeData.name || nodeData.groupid;
-                });
-                const isSpof = spofNodes.some(n => {
-                    const nodeData = n.node || n;
-                    return nodeData.instanceid || nodeData.name || nodeData.groupid;
-                });
+            // 創建 EC2 實例節點 (限制數量以提高性能)
+            const ec2Count = Math.min(nodeStats.EC2Instance || 0, 10);
+            for (let i = 1; i <= ec2Count; i++) {
+                const nodeId = `ec2-${i}`;
+                const isCritical = criticalNodeIds.has(nodeId) || i <= 2; // 前兩個標記為關鍵
+                const isSpof = spofNodeIds.has(nodeId) || i === 1; // 第一個標記為單點故障
                 
                 nodes.push({
-                    id: `ec2-${i}`,
+                    id: nodeId,
                     label: `EC2-${i}`,
                     group: 'EC2Instance',
                     title: `EC2 實例 ${i}<br>Type: t3.micro<br>State: running`,
@@ -1082,13 +1103,13 @@ class SimpleDashboard:
                 });
                 
                 // 連接到子網路
-                edges.push({ from: `subnet-${((i-1) % 3) + 1}`, to: `ec2-${i}` });
+                edges.push({ from: `subnet-${((i-1) % 3) + 1}`, to: nodeId });
             }
             
-            // 創建安全群組節點
-            const sgCount = nodeStats.SecurityGroup || 0;
-            for (let i = 1; i <= Math.min(sgCount, 5); i++) {
-                const hasRisk = permissiveRules.length > 0; // 如果有過度寬鬆規則，標記為高風險
+            // 創建安全群組節點 (限制數量)
+            const sgCount = Math.min(nodeStats.SecurityGroup || 0, 6);
+            for (let i = 1; i <= sgCount; i++) {
+                const hasRisk = permissiveRules.length > 0 && i <= 2; // 前兩個標記為高風險
                 
                 nodes.push({
                     id: `sg-${i}`,
@@ -1099,15 +1120,15 @@ class SimpleDashboard:
                 });
                 
                 // 連接到 EC2 實例
-                if (i <= 3) {
+                if (i <= Math.min(ec2Count, 3)) {
                     edges.push({ from: `ec2-${i}`, to: `sg-${i}` });
                 }
             }
             
-            // 創建 EBS 磁碟節點
-            const volumeCount = nodeStats.EBSVolume || 0;
-            for (let i = 1; i <= Math.min(volumeCount, 6); i++) {
-                const isOrphaned = orphanedVolumes.length > 0; // 如果有孤兒磁碟，標記為成本浪費
+            // 創建 EBS 磁碟節點 (限制數量)
+            const volumeCount = Math.min(nodeStats.EBSVolume || 0, 8);
+            for (let i = 1; i <= volumeCount; i++) {
+                const isOrphaned = orphanedVolumes.length > 0 && i <= 3; // 前三個標記為孤兒
                 
                 nodes.push({
                     id: `vol-${i}`,
@@ -1118,13 +1139,12 @@ class SimpleDashboard:
                 });
                 
                 // 連接到 EC2 實例
-                if (i <= 3) {
+                if (i <= Math.min(ec2Count, 3)) {
                     edges.push({ from: `vol-${i}`, to: `ec2-${i}` });
                 }
             }
             
-            console.log('Generated nodes:', nodes.length);
-            console.log('Generated edges:', edges.length);
+            console.log('圖形數據生成完成 - 節點:', nodes.length, '邊:', edges.length);
             
             return { nodes, edges };
         }

@@ -16,9 +16,10 @@ if [ -d "output" ] && [ "$(ls -A output/*.json 2>/dev/null)" ]; then
     echo "請選擇操作:"
     echo "1) 重新執行完整分析流程"
     echo "2) 直接啟動儀表板 (使用現有分析結果)"
-    echo "3) 退出"
+    echo "3) 載入新生成的資料到 Neo4j"
+    echo "4) 退出"
     echo ""
-    read -p "請輸入選項 (1-3): " choice
+    read -p "請輸入選項 (1-4): " choice
     
     case $choice in
         2)
@@ -28,6 +29,23 @@ if [ -d "output" ] && [ "$(ls -A output/*.json 2>/dev/null)" ]; then
             exit 0
             ;;
         3)
+            echo "載入新生成的資料到 Neo4j..."
+            source venv/bin/activate
+            
+            # 檢查新資料文件是否存在
+            if [ ! -f "data/raw/mock_aws_resources.json" ]; then
+                echo "新資料文件不存在，正在生成..."
+                python scripts/create_enhanced_security_data.py
+            fi
+            
+            python main.py --mode load --data-path data/raw/mock_aws_resources.json
+            echo ""
+            echo "資料載入完成！"
+            echo "您現在可以在 Neo4j Browser 中執行查詢了"
+            echo "Neo4j Aura Console: https://console.neo4j.io"
+            exit 0
+            ;;
+        4)
             echo "退出"
             exit 0
             ;;
@@ -98,6 +116,9 @@ if [ $? -eq 0 ]; then
     echo "================================"
     
     # 執行完整分析
+    echo "正在執行完整分析流程..."
+    echo "這包括：資料載入、安全性分析、故障衝擊分析、成本優化分析"
+    echo ""
     python main.py --mode comprehensive-analyze --mock
     
     if [ $? -eq 0 ]; then
@@ -122,9 +143,11 @@ if [ $? -eq 0 ]; then
         echo ""
         echo "其他命令:"
         echo "- 重新分析: python main.py --mode comprehensive-analyze --mock"
-        echo "- 只載入資料: python main.py --mode load --data-path data/raw/enhanced_mock_aws_resources.json"
+        echo "- 只載入資料: python main.py --mode load --data-path data/raw/mock_aws_resources.json"
         echo "- 只執行分析: python main.py --mode analyze"
         echo "- 啟動儀表板: python main.py --mode dashboard --host 0.0.0.0 --port 8050"
+        echo "- 生成新資料: python scripts/create_enhanced_security_data.py"
+        echo "- 查看報告: 開啟 output/ 目錄中的 PDF 文件"
     else
         echo "分析執行失敗，請檢查錯誤訊息"
     fi

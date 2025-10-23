@@ -87,6 +87,7 @@
 % JSON code style
 \lstdefinestyle{json}{
   language=Python,
+  morecomment=[l]{//}, % 支援 // 註解
   backgroundcolor=\color{codebg},
   basicstyle=\ttfamily\small,
   keywordstyle=\bfseries\color{blue},
@@ -107,8 +108,8 @@
 }
 
 % Title info
-\title{圖形資料庫最終報告\\Cloud Infrastructure Analysis Platform\\☁️ 雲端基礎設施視覺化分析平台}
-\author{課程：高等資料庫系統\\姓名：梁祐嘉\\學號：01157145\\班級：資工 4B\\日期：2024年10月22日}
+\title{圖形資料庫最終報告\\Cloud Infrastructure Analysis Platform\\雲端基礎設施視覺化分析平台}
+\author{課程：高等資料庫系統\\姓名：梁祐嘉\\學號：01157145\\班級：資工 4B\\日期：2025年10月23日}
 \date{}
 
 % Traditional Chinese names for lists and ToC
@@ -145,17 +146,17 @@
 
 『Cloud Infrastructure Visualization Analysis Platform』雲端基礎設施視覺化分析平台。在現今的雲端環境，像是 AWS 這樣的平台，管理數百甚至數千個互相連接的資源 (Resources)，例如 \texttt{EC2 instances}、\texttt{Databases}、\texttt{Firewalls} (\texttt{Security Groups})、\texttt{Load Balancers} 等，變得非常複雜。傳統的 List 或儀表板 Dashboard 很難呈現資源間的多層次（multi-hop）關聯，使得評估安全風險、分析故障影響範圍，或是找出可以節省成本的地方變得十分困難。我們的解決方案是利用 \texttt{Neo4j} 這個圖形資料庫 (Graph Database)，將 infrastructure 的關係模型化，轉換成一個更直觀的、可深度查詢的圖譜，方便我們進行視覺化與分析。
 
-\subsection{核心價值}
+\subsection{專案目標}
 \begin{itemize}[leftmargin=1.5em]
-\item \textbf{視覺化複雜基礎設施}：將雲端資源轉換為易理解的圖形模型
-\item \textbf{智能分析}：自動識別安全風險、故障點和成本浪費
-\item \textbf{即時監控}：提供動態的基礎設施健康度評估
-\item \textbf{決策支援}：為基礎設施優化提供數據驅動的建議
+\item \textbf{視覺化複雜基礎設施} - 將雲端資源轉換為易理解的圖形模型
+\item \textbf{智能分析} - 自動識別安全風險、故障點和成本浪費
+\item \textbf{即時監控} - 提供動態的基礎設施健康度評估
+\item \textbf{決策支援} - 為基礎設施優化提供數據驅動的建議
 \end{itemize}
 
-\subsection{三大核心功能}
+\subsection{核心功能}
 
-這個平台主要聚焦在於自動化分析三個領域：
+平台主要聚焦在於自動化分析三個領域：
 
 \begin{enumerate}[leftmargin=1.5em]
 \item \textbf{Security Vulnerability Analysis (資安漏洞分析):} 自動檢測暴露在公網的 High Risk 的服務（例如開放的 \texttt{SSH} 或 \texttt{RDP} ports）、過度寬鬆的防火牆規則 (\texttt{Security Group rules})，以及未加密的儲存資源 (\texttt{EBS volumes}) 等。
@@ -226,9 +227,9 @@ Mock Data 載入完成。這些模擬資料是以 \texttt{JSON} 格式提供的�
 
 \subsection{核心節點（Nodes）}
 \begin{itemize}[leftmargin=1.5em]
-\item \texttt{:EC2Instance}：屬性包含 \texttt{InstanceID}, \texttt{Name}, \texttt{State}, \texttt{PublicIP}。
-\item \texttt{:SecurityGroup}：屬性包含 \texttt{GroupID}, \texttt{GroupName}。
-\item \texttt{:Rule}：屬性包含 \texttt{Protocol}, \texttt{PortRange}, \texttt{SourceCIDR}。
+\item \texttt{:EC2Instance} - 屬性包含 \texttt{InstanceID}, \texttt{Name}, \texttt{State}, \texttt{PublicIP}。
+\item \texttt{:SecurityGroup} - 屬性包含 \texttt{GroupID}, \texttt{GroupName}。
+\item \texttt{:Rule} - 屬性包含 \texttt{Protocol}, \texttt{PortRange}, \texttt{SourceCIDR}。
 \item \texttt{:VPC}、\texttt{:Subnet}、\texttt{:ELB}、\texttt{:S3Bucket}。
 \end{itemize}
 
@@ -240,11 +241,137 @@ Mock Data 載入完成。這些模擬資料是以 \texttt{JSON} 格式提供的�
 \item \texttt{(ELB)-[:ROUTES\_TO]->(EC2Instance)}
 \end{itemize}
 
+\subsection{節點類型詳細說明}
+
+本系統定義了以下核心節點類型，每個節點都包含特定的屬性來描述雲端資源的特徵：
+
+\subsubsection{EC2Instance 節點}
+\textbf{用途：} 代表 AWS EC2 虛擬機器實例
+\begin{itemize}[leftmargin=1.5em]
+\item \texttt{instanceid} - EC2 實例的唯一識別碼（如：i-1234567890abcdef0）
+\item \texttt{name} - 實例的名稱標籤（如：web-server-01）
+\item \texttt{state} - 實例狀態（running, stopped, terminated）
+\item \texttt{instancetype} - 實例類型（t3.micro, c5.large 等）
+\item \texttt{publicip} - 公有 IP 地址
+\item \texttt{privateip} - 私有 IP 地址
+\item \texttt{region} - AWS 區域（us-east-1, ap-southeast-1 等）
+\item \texttt{launchtime} - 啟動時間
+\item \texttt{tags} - 標籤資訊（JSON 格式）
+\end{itemize}
+
+\subsubsection{SecurityGroup 節點}
+\textbf{用途：} 代表 AWS 安全群組（防火牆規則群組）
+\begin{itemize}[leftmargin=1.5em]
+\item \texttt{groupid} - 安全群組的唯一識別碼（如：sg-12345678）
+\item \texttt{name} - 安全群組名稱
+\item \texttt{description} - 群組描述
+\item \texttt{vpcid} - 所屬 VPC 的識別碼
+\item \texttt{region} - AWS 區域
+\end{itemize}
+
+\subsubsection{SecurityRule 節點}
+\textbf{用途：} 代表安全群組中的具體規則
+\begin{itemize}[leftmargin=1.5em]
+\item \texttt{ruleid} - 規則的唯一識別碼
+\item \texttt{protocol} - 協定類型（tcp, udp, icmp, all）
+\item \texttt{portrange} - 連接埠範圍（22, 80-443, 0-65535）
+\item \texttt{sourcecidr} - 來源 IP 範圍（0.0.0.0/0, 10.0.0.0/8）
+\item \texttt{direction} - 流量方向（inbound, outbound）
+\item \texttt{description} - 規則描述
+\end{itemize}
+
+\subsubsection{VPC 節點}
+\textbf{用途：} 代表 AWS 虛擬私有雲
+\begin{itemize}[leftmargin=1.5em]
+\item \texttt{vpcid} - VPC 的唯一識別碼（如：vpc-12345678）
+\item \texttt{name} - VPC 名稱標籤
+\item \texttt{cidrblock} - CIDR 區塊（如：10.0.0.0/16）
+\item \texttt{state} - VPC 狀態（available, pending）
+\item \texttt{region} - AWS 區域
+\item \texttt{isdefault} - 是否為預設 VPC
+\end{itemize}
+
+\subsubsection{Subnet 節點}
+\textbf{用途：} 代表 VPC 中的子網路
+\begin{itemize}[leftmargin=1.5em]
+\item \texttt{subnetid} - 子網路的唯一識別碼（如：subnet-12345678）
+\item \texttt{name} - 子網路名稱標籤
+\item \texttt{cidrblock} - 子網路 CIDR 區塊（如：10.0.1.0/24）
+\item \texttt{availabilityzone} - 可用區域（如：us-east-1a）
+\item \texttt{state} - 子網路狀態
+\item \texttt{vpcid} - 所屬 VPC 的識別碼
+\end{itemize}
+
+\subsubsection{EBSVolume 節點}
+\textbf{用途：} 代表 AWS EBS 磁碟
+\begin{itemize}[leftmargin=1.5em]
+\item \texttt{volumeid} - 磁碟的唯一識別碼（如：vol-12345678）
+\item \texttt{name} - 磁碟名稱標籤
+\item \texttt{size} - 磁碟大小（GB）
+\item \texttt{volumetype} - 磁碟類型（gp3, gp2, io1, st1, sc1）
+\item \texttt{state} - 磁碟狀態（available, in-use, creating）
+\item \texttt{encrypted} - 是否加密（true/false）
+\item \texttt{region} - AWS 區域
+\item \texttt{creationdate} - 建立日期
+\end{itemize}
+
+\subsubsection{S3Bucket 節點}
+\textbf{用途：} 代表 AWS S3 儲存桶
+\begin{itemize}[leftmargin=1.5em]
+\item \texttt{bucketname} - 儲存桶名稱
+\item \texttt{region} - AWS 區域
+\item \texttt{creationdate} - 建立日期
+\item \texttt{versioning} - 版本控制狀態
+\item \texttt{encryption} - 加密設定
+\item \texttt{publicaccess} - 公開存取設定
+\end{itemize}
+
+\subsection{關係類型詳細說明}
+
+本系統定義了以下核心關係類型，用於描述雲端資源之間的連接和依賴關係：
+
+\subsubsection{IS\_MEMBER\_OF 關係}
+\textbf{用途：} 表示 EC2 實例屬於某個安全群組
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{方向：} \texttt{(EC2Instance)-[:IS\_MEMBER\_OF]->(SecurityGroup)}
+\item \textbf{意義：} EC2 實例受到該安全群組的防火牆規則保護
+\item \textbf{屬性：} 通常不包含額外屬性，關係本身即表示成員資格
+\item \textbf{查詢用途：} 用於分析哪些實例受到特定安全群組保護，或找出未受保護的實例
+\end{itemize}
+
+\subsubsection{HAS\_RULE 關係}
+\textbf{用途：} 表示安全群組包含特定的安全規則
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{方向：} \texttt{(SecurityGroup)-[:HAS\_RULE]->(SecurityRule)}
+\item \textbf{意義：} 安全群組定義了具體的網路存取規則
+\item \textbf{屬性：} 可能包含規則優先級或啟用狀態
+\item \textbf{查詢用途：} 用於分析安全群組的規則配置，識別過度寬鬆的規則
+\end{itemize}
+
+\subsubsection{LOCATED\_IN 關係}
+\textbf{用途：} 表示資源位於特定的網路位置
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{方向：} \texttt{(EC2Instance)-[:LOCATED\_IN]->(Subnet)}，\texttt{(Subnet)-[:LOCATED\_IN]->(VPC)}
+\item \textbf{意義：} 描述資源的網路層級位置關係
+\item \textbf{屬性：} 可能包含 IP 地址分配資訊
+\item \textbf{查詢用途：} 用於分析網路拓撲，識別跨可用區域的冗餘性
+\end{itemize}
+
+\subsubsection{ATTACHES\_TO 關係}
+\textbf{用途：} 表示 EBS 磁碟掛載到 EC2 實例
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{方向：} \texttt{(EBSVolume)-[:ATTACHES\_TO]->(EC2Instance)}
+\item \textbf{意義：} EBS 磁碟被掛載到特定的 EC2 實例上
+\item \textbf{屬性：} 可能包含掛載點和掛載狀態
+\item \textbf{查詢用途：} 用於識別孤兒磁碟（未掛載的磁碟）和磁碟使用情況
+\end{itemize}
+
+
 \section{核心分析功能與範例查詢}\label{sec:analysis}
 本系統聚焦三大分析場景：資安漏洞分析、故障衝擊分析與成本優化分析。以下提供代表性 Cypher 查詢。
 
 \subsection{資安漏洞分析（Security Vulnerability Analysis）}
-\textbf{目標}：找出所有暴露於公網且開啟高風險連接埠（如 SSH:22, RDP:3389）的主機。
+\textbf{目標} - 找出所有暴露於公網且開啟高風險連接埠（如 SSH:22, RDP:3389）的主機。
 
 \begin{lstlisting}[language=Cypher,caption={尋找允許 0.0.0.0/0 存取 22 埠之主機}]
 // 找出所有允許從任何 IP (0.0.0.0/0) 存取 22 號連接埠的主機
@@ -255,7 +382,7 @@ RETURN instance.Name, instance.InstanceID, instance.PublicIP
 \end{lstlisting}
 
 \subsection{故障衝擊分析（Failure Impact Analysis）}
-\textbf{目標}：由特定資料庫（如 \texttt{db-main}）出發，找出依賴該資料庫的應用主機。
+\textbf{目標} - 由特定資料庫（如 \texttt{db-main}）出發，找出依賴該資料庫的應用主機。
 
 \begin{lstlisting}[language=Cypher,caption={由資料庫反向追蹤依賴它的應用主機}]
 // 假設存在 (EC2)-[:CONNECTS_TO]->(Database) 的關係
@@ -264,7 +391,7 @@ RETURN DISTINCT app.Name AS AffectedApplication
 \end{lstlisting}
 
 \subsection{成本優化分析（Cost Optimization Analysis）}
-\textbf{目標}：找出帳號中的「孤兒硬碟」（Orphaned EBS Volumes）。
+\textbf{目標} - 找出帳號中的「孤兒硬碟」（Orphaned EBS Volumes）。
 
 \begin{lstlisting}[language=Cypher,caption={找出未連接至任何 EC2 的 EBS 磁碟}]
 MATCH (vol:EBSVolume)
@@ -272,12 +399,198 @@ WHERE NOT (vol)-[:ATTACHES_TO]->(:EC2Instance)
 RETURN vol.VolumeID, vol.Size, vol.CreationDate
 \end{lstlisting}
 
+\subsection{詳細查詢語句解析}
+
+本節提供完整的 Cypher 查詢語句解析，涵蓋安全性、成本和可靠性分析的核心查詢。
+
+\subsubsection{安全性分析查詢}
+
+\textbf{1. 未加密的 EBS 磁碟檢測}
+
+\begin{lstlisting}[language=Cypher,caption={找出未加密的 EBS 磁碟}]
+MATCH (v:EBSVolume) 
+WHERE v.encrypted = false
+RETURN v.volumeid AS VolumeID, v.region AS Region, v.state AS State, v.size AS SizeGB
+\end{lstlisting}
+
+\textbf{查詢解析：}
+\begin{itemize}[leftmargin=1.5em]
+\item \texttt{MATCH (v:EBSVolume)} - 尋找圖形資料庫中所有標記為 \texttt{EBSVolume} 的節點
+\item \texttt{WHERE v.encrypted = false} - 篩選出 \texttt{encrypted} 屬性為 \texttt{false} 的磁碟
+\item \texttt{RETURN ...} - 回傳未加密磁碟的詳細資訊
+\item \textbf{用途} - 找出不符合加密安全規範的 EBS 磁碟
+\end{itemize}
+
+\textbf{2. 過度寬鬆的安全群組檢測}
+
+\begin{lstlisting}[language=Cypher,caption={找出過度寬鬆的安全性群組}]
+MATCH (sg:SecurityGroup)-[:HAS_RULE]->(sr:SecurityRule) 
+WHERE sr.sourcecidr = '0.0.0.0/0'
+AND sr.direction = 'inbound'
+RETURN sg.groupid AS SecurityGroupID, sg.name AS SecurityGroupName, 
+       sr.protocol AS Protocol, sr.portrange AS PortRange, sr.description AS RuleDescription
+\end{lstlisting}
+
+\textbf{查詢解析：}
+\begin{itemize}[leftmargin=1.5em]
+\item \texttt{MATCH (sg:SecurityGroup)-[:HAS\_RULE]->(sr:SecurityRule)} - 尋找安全群組及其規則的關聯
+\item \texttt{WHERE sr.sourcecidr = '0.0.0.0/0' AND sr.direction = 'inbound'} - 篩選允許任何 IP 存取的傳入規則
+\item \textbf{用途} - 這是一個重大的安全檢查，用於找出所有向全世界開放的服務埠
+\end{itemize}
+
+\subsubsection{成本優化分析查詢}
+
+\textbf{3. 未掛載的 EBS 磁碟檢測}
+
+\begin{lstlisting}[language=Cypher,caption={找出未掛載的 EBS 磁碟}]
+MATCH (v:EBSVolume) 
+WHERE NOT (v)--(:EC2Instance) 
+RETURN v.volumeid AS VolumeID, v.region AS Region, v.state AS State, v.size AS SizeGB
+\end{lstlisting}
+
+\textbf{查詢解析：}
+\begin{itemize}[leftmargin=1.5em]
+\item \texttt{MATCH (v:EBSVolume)} - 尋找所有 EBS 磁碟節點
+\item \texttt{WHERE NOT (v)--(:EC2Instance)} - 篩選沒有關聯到任何 EC2 實例的磁碟
+\item \textbf{用途} - 找出未被使用的 EBS 磁碟，這些磁碟仍會產生儲存費用
+\end{itemize}
+
+\textbf{4. 未使用的安全群組檢測}
+
+\begin{lstlisting}[language=Cypher,caption={找出未使用的安全性群組}]
+MATCH (sg:SecurityGroup) 
+WHERE NOT (:EC2Instance)-->(sg) 
+AND EXISTS((sg)-[:HAS_RULE]->(:SecurityRule)) 
+RETURN sg.groupid AS SecurityGroupID, sg.name AS SecurityGroupName, 
+       sg.vpcid AS VPCID, sg.region AS Region
+\end{lstlisting}
+
+\textbf{查詢解析：}
+\begin{itemize}[leftmargin=1.5em]
+\item \texttt{WHERE NOT (:EC2Instance)-->(sg)} - 篩選沒有被任何 EC2 實例使用的安全群組
+\item \texttt{AND EXISTS((sg)-[:HAS\_RULE]->(:SecurityRule))} - 確保這些群組確實定義了規則
+\item \textbf{用途} - 清理舊的或已棄用的安全群組，簡化網路管理
+\end{itemize}
+
+\textbf{5. 已停止的 EC2 實例檢測}
+
+\begin{lstlisting}[language=Cypher,caption={找出已停止的 EC2 執行個體}]
+MATCH (i:EC2Instance) 
+WHERE i.state = 'stopped'
+RETURN i.instanceid AS InstanceID, i.name AS InstanceName, i.region AS Region, 
+       i.instancetype AS InstanceType, i.launchtime AS LaunchTime
+\end{lstlisting}
+
+\textbf{查詢解析：}
+\begin{itemize}[leftmargin=1.5em]
+\item \texttt{WHERE i.state = 'stopped'} - 篩選狀態為 \texttt{stopped} 的實例
+\item \textbf{用途} - 找出長時間停止的 EC2 實例，雖然停止的 EC2 不會收取運算費用，但掛載的 EBS 磁碟仍會收費
+\end{itemize}
+
+\subsubsection{故障衝擊分析查詢}
+
+\textbf{6. 關鍵節點識別}
+
+\begin{lstlisting}[language=Cypher,caption={找出關鍵節點}]
+MATCH (n)
+WITH n, COUNT { (n)--() } as connection_count
+WHERE connection_count > 2
+RETURN labels(n)[0] AS NodeType,
+CASE
+WHEN labels(n)[0] = 'EC2Instance' THEN n.name
+WHEN labels(n)[0] = 'SecurityGroup' THEN n.name
+WHEN labels(n)[0] = 'VPC' THEN n.vpcid
+WHEN labels(n)[0] = 'Subnet' THEN n.subnetid
+ELSE n.id
+END AS NodeName,
+connection_count AS ConnectionCount
+ORDER BY ConnectionCount DESC
+LIMIT 10
+\end{lstlisting}
+
+\textbf{查詢解析：}
+\begin{itemize}[leftmargin=1.5em]
+\item \texttt{MATCH (n)} - 匹配圖中的所有節點
+\item \texttt{COUNT \{ (n)--() \} as connection\_count} - 計算每個節點的連接數
+\item \texttt{WHERE connection\_count > 2} - 篩選連接數大於 2 的節點
+\item \textbf{用途} - 找出圖中連接最緊密的關鍵節點，這些節點一旦發生故障，影響範圍可能最廣
+\end{itemize}
+
+\textbf{7. 單點故障檢測}
+
+\begin{lstlisting}[language=Cypher,caption={找出單點故障}]
+MATCH (n)
+WITH n, COUNT { (n)--() } as connection_count
+WHERE connection_count = 1
+RETURN labels(n)[0] AS NodeType,
+CASE
+WHEN labels(n)[0] = 'EC2Instance' THEN n.name
+WHEN labels(n)[0] = 'SecurityGroup' THEN n.name
+WHEN labels(n)[0] = 'EBSVolume' THEN n.volumeid
+ELSE n.id
+END AS NodeName,
+connection_count AS ConnectionCount
+ORDER BY NodeType, NodeName
+LIMIT 15
+\end{lstlisting}
+
+\textbf{查詢解析：}
+\begin{itemize}[leftmargin=1.5em]
+\item \texttt{WHERE connection\_count = 1} - 篩選連接數剛好等於 1 的節點
+\item \textbf{用途} - 找出潛在的單點故障，這些節點位於圖形的末端，如果唯一連接失效就會被隔離
+\end{itemize}
+
+\textbf{8. 網路冗餘性分析}
+
+\begin{lstlisting}[language=Cypher,caption={網路冗餘性分析}]
+MATCH (vpc:VPC)
+OPTIONAL MATCH (subnet:Subnet)-[:LOCATED_IN]->(vpc)
+OPTIONAL MATCH (instance:EC2Instance)-[:LOCATED_IN]->(subnet)
+WITH vpc, 
+collect(DISTINCT subnet) as subnets,
+collect(DISTINCT instance) as instances
+RETURN
+vpc.vpcid as VpcId,
+size(subnets) as SubnetCount,
+size(instances) as InstanceCount,
+[subnet in subnets | {
+id: subnet.subnetid,
+az: subnet.availabilityzone,
+cidr: subnet.cidrblock,
+instance_count: COUNT { (instance:EC2Instance)-[:LOCATED_IN]->(subnet) }
+}] as subnet_details
+ORDER BY InstanceCount DESC
+\end{lstlisting}
+
+\textbf{查詢解析：}
+\begin{itemize}[leftmargin=1.5em]
+\item \texttt{OPTIONAL MATCH} - 使用選擇性匹配來找出 VPC 中的子網路和實例
+\item \texttt{collect(DISTINCT ...)} - 收集每個 VPC 下的所有子網路和實例
+\item \textbf{用途} - 全面分析每個 VPC 的資源分佈，檢查跨可用區域的冗餘性
+\end{itemize}
+
+\textbf{9. 一般圖形探索}
+
+\begin{lstlisting}[language=Cypher,caption={一般圖形探索}]
+MATCH (a)-[r]-(b) 
+WHERE type(r) IN ['IS_MEMBER_OF', 'LOCATED_IN', 'ATTACHES_TO', 'HAS_RULE'] 
+RETURN a, r, b 
+LIMIT 200
+\end{lstlisting}
+
+\textbf{查詢解析：}
+\begin{itemize}[leftmargin=1.5em]
+\item \texttt{MATCH (a)-[r]-(b)} - 匹配任意兩個節點之間的關聯
+\item \texttt{WHERE type(r) IN [...]} - 篩選核心的關聯類型
+\item \textbf{用途} - 探索性查詢，用於快速了解圖形中的主要結構和連接方式
+\end{itemize}
+
 \section{實作要點}
 \subsection{擷取與載入}
 \begin{itemize}[leftmargin=1.5em]
-\item \textbf{擷取頻率與版本控管}：定期擷取 JSON 並保留版本，以支援變更比對與回溯。
-\item \textbf{ID 去重與關聯完整性}：以雲端資源原生 ID 作為主鍵，避免重覆匯入；匯入順序先節點後關係。
-\item \textbf{安全性}：妥善保護 API 金鑰，避免將敏感設定納入版本庫。
+\item \textbf{擷取頻率與版本控管} - 定期擷取 JSON 並保留版本，以支援變更比對與回溯。
+\item \textbf{ID 去重與關聯完整性} - 以雲端資源原生 ID 作為主鍵，避免重覆匯入；匯入順序先節點後關係。
+\item \textbf{安全性} - 妥善保護 API 金鑰，避免將敏感設定納入版本庫。
 \end{itemize}
 
 \subsection{查詢效能}
