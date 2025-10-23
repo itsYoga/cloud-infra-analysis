@@ -39,4 +39,18 @@
 \contentsline {subsection}{\numberline {8.1}專案成果}{14}{subsection.8.1}%
 \contentsline {subsection}{\numberline {8.2}技術價值}{14}{subsection.8.2}%
 \contentsline {subsection}{\numberline {8.3}未來發展}{14}{subsection.8.3}%
-\contentsline {section}{\numberline {9}參考資料}{14}{section.9}%
+\contentsline {section}{\numberline {9}系統架構與儀表板工作原理}{15}{section.9}%
+\contentsline {subsection}{\numberline {9.1}整體系統架構}{15}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}系統連接流程}{15}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}儀表板工作原理}{15}{subsection.9.3}%
+\contentsline {subsubsection}{\numberline {9.3.1}Flask 儀表板架構}{15}{subsubsection.9.3.1}%
+\contentsline {subsubsection}{\numberline {9.3.2}核心 API 端點}{15}{subsubsection.9.3.2}%
+\contentsline {subsubsection}{\numberline {9.3.3}前端視覺化技術}{15}{subsubsection.9.3.3}%
+\contentsline {subsection}{\numberline {9.4}系統截圖展示}{16}{subsection.9.4}%
+\contentsline {subsection}{\numberline {9.5}Neo4j 查詢結果展示}{17}{subsection.9.5}%
+\contentsline {subsubsection}{\numberline {9.5.1}節點類型查詢結果}{18}{subsubsection.9.5.1}%
+\contentsline {subsubsection}{\numberline {9.5.2}關係類型查詢結果}{19}{subsubsection.9.5.2}%
+\contentsline {subsubsection}{\numberline {9.5.3}安全性分析查詢結果}{19}{subsubsection.9.5.3}%
+\contentsline {subsubsection}{\numberline {9.5.4}成本優化分析查詢結果}{20}{subsubsection.9.5.4}%
+\contentsline {subsubsection}{\numberline {9.5.5}故障衝擊分析查詢結果}{20}{subsubsection.9.5.5}%
+\contentsline {section}{\numberline {10}參考資料}{21}{section.10}%

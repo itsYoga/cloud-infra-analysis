@@ -645,6 +645,282 @@ LIMIT 200
 \item \textbf{視覺化增強}: 提供更豐富的圖形展示功能
 \end{itemize}
 
+\clearpage
+\section{系統架構與儀表板工作原理}
+
+\subsection{整體系統架構}
+
+本系統採用模組化架構設計，主要組件包括：
+
+\begin{enumerate}[leftmargin=1.5em]
+\item \textbf{資料擷取層} - 從 AWS API 或模擬資料中擷取雲端資源資訊
+\item \textbf{資料轉換層} - 將原始資料轉換為圖形資料模型
+\item \textbf{Neo4j 圖形資料庫} - 儲存節點和關係，支援複雜查詢
+\item \textbf{分析引擎} - 執行安全性、故障衝擊和成本優化分析
+\item \textbf{視覺化儀表板} - 提供互動式 Web 介面展示分析結果
+\end{enumerate}
+
+\subsection{系統連接流程}
+
+\begin{verbatim}
+雲端 API (AWS) → 資料擷取層 → 資料轉換層 → Neo4j 圖形資料庫 → 分析引擎 → 視覺化層
+     ↓              ↓              ↓              ↓              ↓           ↓
+  Boto3 SDK     AWSExtractor   資料標準化     圖形模型化     Cypher 查詢   Flask 儀表板
+\end{verbatim}
+
+\subsection{儀表板工作原理}
+
+\subsubsection{Flask 儀表板架構}
+
+系統使用 \texttt{SimpleDashboard} 類別提供基於 Flask 的輕量級 Web 儀表板：
+
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{資料載入} - 從 JSON 分析結果文件載入資料
+\item \textbf{API 端點} - 提供 RESTful API 供前端調用
+\item \textbf{圖形視覺化} - 整合 \texttt{vis-network} 進行互動式圖形展示
+\item \textbf{即時分析} - 支援動態查詢和結果更新
+\end{itemize}
+
+\subsubsection{核心 API 端點}
+
+\begin{lstlisting}[language=Python,caption={儀表板 API 端點}]
+@app.route('/api/data')      # 獲取所有分析數據
+@app.route('/api/security')  # 獲取安全分析結果
+@app.route('/api/failure')   # 獲取故障衝擊分析結果
+@app.route('/api/cost')     # 獲取成本優化分析結果
+\end{lstlisting}
+
+\subsubsection{前端視覺化技術}
+
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{vis-network} - 互動式圖形網路視覺化
+\item \textbf{Chart.js} - 統計圖表展示
+\item \textbf{FontAwesome} - 圖標系統
+\item \textbf{響應式設計} - 支援多種螢幕尺寸
+\end{itemize}
+
+\subsection{系統截圖展示}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{Mainpage_Screenshot.png}
+\caption{系統主頁面 - 顯示整體分析概覽}
+\label{fig:mainpage}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{0.32\textwidth}
+\centering
+\includegraphics[width=\textwidth]{安全分析.png}
+\caption{安全性分析結果}
+\label{fig:security}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.32\textwidth}
+\centering
+\includegraphics[width=\textwidth]{故障衝擊分析.png}
+\caption{故障衝擊分析}
+\label{fig:failure}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.32\textwidth}
+\centering
+\includegraphics[width=\textwidth]{成本優化分析.png}
+\caption{成本優化分析}
+\label{fig:cost}
+\end{subfigure}
+\caption{三大核心分析功能截圖 - 安全性分析、故障衝擊分析、成本優化分析}
+\label{fig:analysis_screenshots}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{neo4j_aura.png}
+\caption{Neo4j Aura 雲端資料庫 - 圖形資料儲存和查詢}
+\label{fig:neo4j}
+\end{figure}
+
+\subsection{Neo4j 查詢結果展示}
+
+本節展示在 Neo4j Aura 中執行的各種 Cypher 查詢結果，驗證系統的分析功能。
+
+\subsubsection{節點類型查詢結果}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{EC2Instances.png}
+\caption{EC2 實例節點}
+\label{fig:ec2_nodes}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{SecurityGroup.png}
+\caption{安全群組節點}
+\label{fig:sg_nodes}
+\end{subfigure}
+\caption{核心節點類型查詢結果}
+\label{fig:node_types}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{VPC.png}
+\caption{VPC 節點}
+\label{fig:vpc_nodes}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{Subnet.png}
+\caption{子網路節點}
+\label{fig:subnet_nodes}
+\end{subfigure}
+\caption{網路基礎設施節點}
+\label{fig:network_nodes}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{EBSVolumes.png}
+\caption{EBS 磁碟節點}
+\label{fig:ebs_nodes}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{SecurityRule.png}
+\caption{安全規則節點}
+\label{fig:rule_nodes}
+\end{subfigure}
+\caption{儲存和安全規則節點}
+\label{fig:storage_security_nodes}
+\end{figure}
+
+\subsubsection{關係類型查詢結果}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{IS_MEMBER_OF.png}
+\caption{IS\_MEMBER\_OF 關係}
+\label{fig:is_member_of}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{HAS_RULE.png}
+\caption{HAS\_RULE 關係}
+\label{fig:has_rule}
+\end{subfigure}
+\caption{安全群組相關關係}
+\label{fig:security_relationships}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{LOCATED_IN.png}
+\caption{LOCATED\_IN 關係}
+\label{fig:located_in}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{ATTACHES_TO.png}
+\caption{ATTACHES\_TO 關係}
+\label{fig:attaches_to}
+\end{subfigure}
+\caption{位置和掛載關係}
+\label{fig:location_attachment_relationships}
+\end{figure}
+
+\subsubsection{安全性分析查詢結果}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{UnencryptedEBSVolumes.png}
+\caption{未加密 EBS 磁碟檢測}
+\label{fig:unencrypted_ebs}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{Overly Permissive SG.png}
+\caption{過度寬鬆的安全群組檢測}
+\label{fig:permissive_sg}
+\end{subfigure}
+\caption{安全性分析查詢結果}
+\label{fig:security_analysis_results}
+\end{figure}
+
+\subsubsection{成本優化分析查詢結果}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{Orphaned EBS Volumes.png}
+\caption{孤兒 EBS 磁碟檢測}
+\label{fig:orphaned_ebs}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{Unused Security Groups.png}
+\caption{未使用的安全群組檢測}
+\label{fig:unused_sg}
+\end{subfigure}
+\caption{成本優化分析查詢結果}
+\label{fig:cost_analysis_results}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{Stopped EC2 Instances.png}
+\caption{已停止的 EC2 實例檢測}
+\label{fig:stopped_ec2}
+\end{figure}
+
+\subsubsection{故障衝擊分析查詢結果}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{Critical Nodes.png}
+\caption{關鍵節點識別}
+\label{fig:critical_nodes}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{Single Point of Failure.png}
+\caption{單點故障檢測}
+\label{fig:spof}
+\end{subfigure}
+\caption{故障衝擊分析查詢結果}
+\label{fig:failure_analysis_results}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{Network Redundancy Analysis.png}
+\caption{網路冗餘性分析}
+\label{fig:network_redundancy}
+\end{figure}
+
 \section{參考資料}
 
 \begin{enumerate}[leftmargin=1.5em]
@@ -652,12 +928,8 @@ LIMIT 200
 \item Cypher Query Language: https://neo4j.com/docs/cypher-manual/
 \item AWS Well-Architected Framework: https://aws.amazon.com/architecture/well-architected/
 \item Cartography Project: https://github.com/lyft/cartography
+\item 專案 GitHub 儲存庫: https://github.com/itsYoga/cloud-infra-analysis
 \end{enumerate}
 
 ---
-
-\textbf{報告完成日期}: 2024年10月22日 \\
-\textbf{總頁數}: 約 25 頁 \\
-\textbf{字數}: 約 8,000 字
-
 \end{document}
